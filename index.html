@@ -3,591 +3,572 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monitor Saúde Pública — Campinas/SP</title>
-<meta name="description" content="Monitoramento das unidades de saúde pública de Campinas em mapa real — CNES/DataSUS.">
+<title>Monitor Saúde Pública — Campinas/SP | UltraDark Pro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  :root {
+    /* Paleta Ultra Dark Premium */
+    --bg-base: #020617; /* Quase preto */
+    --bg-gradient: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+    --surface: rgba(30, 41, 59, 0.5); /* Translúcido */
+    --surface-stroke: rgba(148, 163, 184, 0.1);
+    --surface-active: rgba(51, 65, 85, 0.8);
+    
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #475569;
+    
+    /* Cores de Status com Glow */
+    --accent-green: #4ade80;
+    --accent-green-glow: rgba(74, 222, 128, 0.4);
+    --accent-amber: #fbbf24;
+    --accent-amber-glow: rgba(251, 191, 36, 0.4);
+    --accent-red: #f87171;
+    --accent-red-glow: rgba(248, 113, 113, 0.4);
+    --accent-blue: #38bdf8;
+    
+    /* Cores dos Tipos de Unidade */
+    --color-hospital: #f43f5e;
+    --color-upa: #f59e0b;
+    --color-ubs: #10b981;
+    --color-other: #8b5cf6;
+    
+    --radius-lg: 16px;
+    --radius-md: 10px;
+    --radius-sm: 6px;
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    --transition: all 0.2s ease;
+  }
 
-:root {
-  --bg: #020617;
-  --surface: rgba(15, 23, 42, 0.85);
-  --surface2: rgba(30, 41, 59, 0.7);
-  --stroke: rgba(148, 163, 184, 0.12);
-  --stroke2: rgba(148, 163, 184, 0.22);
-  --text: #f1f5f9;
-  --text2: #94a3b8;
-  --text3: #475569;
-  --green: #4ade80;
-  --green-bg: rgba(74,222,128,0.12);
-  --amber: #fbbf24;
-  --amber-bg: rgba(251,191,36,0.12);
-  --red: #f87171;
-  --red-bg: rgba(248,113,113,0.12);
-  --blue: #38bdf8;
-  --hospital: #f43f5e;
-  --upa: #f59e0b;
-  --ubs: #10b981;
-  --other: #8b5cf6;
-  --r: 12px;
-  --r-sm: 8px;
-}
+  body { 
+    font-family: 'Inter', sans-serif; 
+    background: var(--bg-base);
+    background-image: var(--bg-gradient);
+    color: var(--text-primary); 
+    min-height: 100vh; 
+    -webkit-font-smoothing: antialiased;
+  }
+  
+  .app { max-width: 1280px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 
-html, body { height: 100%; }
+  /* --- HEADER --- */
+  .header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-bottom: 2.5rem; 
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .header-titles h1 { 
+    font-size: 1.5rem; 
+    font-weight: 800; 
+    letter-spacing: -0.05em; 
+    background: linear-gradient(to right, #ffffff, #94a3b8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header-titles p { font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem; }
+  
+  .live-indicator {
+    display: flex; align-items: center; gap: 0.75rem; 
+    background: var(--surface); border: 1px solid var(--surface-stroke);
+    padding: 0.5rem 1rem; border-radius: 99px; font-size: 0.875rem; 
+    box-shadow: var(--shadow-md); font-weight: 500;
+  }
+  .pulse { 
+    width: 8px; height: 8px; border-radius: 50%; 
+    background: var(--accent-green); 
+    box-shadow: 0 0 10px var(--accent-green-glow);
+    animation: pulse 2s infinite; 
+  }
+  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
 
-body {
-  font-family: 'Inter', -apple-system, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  -webkit-font-smoothing: antialiased;
-  overflow: hidden;
-}
+  /* --- METRICS --- */
+  .metrics-grid { 
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); 
+    gap: 1.5rem; margin-bottom: 2.5rem; 
+  }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--surface-stroke);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    position: relative; overflow: hidden;
+    backdrop-filter: blur(8px);
+    transition: var(--transition);
+    cursor: default;
+  }
+  .metric-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.1); }
+  
+  .metric-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+  .metric-icon { 
+    width: 36px; height: 36px; border-radius: var(--radius-md); 
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+    color: var(--accent-blue);
+  }
+  .metric-label { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+  .metric-value { font-size: 2.25rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+  .metric-footer { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; }
 
-/* LAYOUT PRINCIPAL — sidebar + mapa */
-.layout {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-}
+  /* Icons */
+  .lucide { width: 18px; height: 18px; stroke-width: 2; }
 
-/* SIDEBAR */
-.sidebar {
-  width: 380px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  border-right: 1px solid var(--stroke);
-  z-index: 1000;
-  overflow: hidden;
-}
+  /* --- MAIN CONTENT & PANELS --- */
+  .main-grid { display: grid; grid-template-columns: 1fr 400px; gap: 1.5rem; align-items: start; }
+  
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--surface-stroke);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(8px);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+  }
+  .panel-header {
+    padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--surface-stroke);
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  .panel-title { font-weight: 700; font-size: 1rem; color: var(--text-primary); }
+  .panel-subtitle { font-size: 0.75rem; color: var(--text-muted); }
 
-.sidebar-inner {
-  flex: 1;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148,163,184,0.15) transparent;
-}
-.sidebar-inner::-webkit-scrollbar { width: 4px; }
-.sidebar-inner::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.15); border-radius: 2px; }
+  /* --- FILTERS --- */
+  .filters { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .filter-btn {
+    background: rgba(255,255,255,0.03); border: 1px solid var(--surface-stroke);
+    color: var(--text-secondary); padding: 0.5rem 1rem; border-radius: 99px;
+    font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: var(--transition);
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .filter-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+  .filter-btn.active { background: var(--accent-blue); color: #000; border-color: var(--accent-blue); font-weight: 600; }
+  
+  .type-dot { width: 8px; height: 8px; border-radius: 50%; }
 
-/* HEADER */
-.s-header {
-  padding: 1.25rem 1.25rem 1rem;
-  border-bottom: 1px solid var(--stroke);
-  flex-shrink: 0;
-}
-.s-header h1 {
-  font-size: 1rem; font-weight: 800; letter-spacing: -0.03em;
-  background: linear-gradient(to right, #fff 30%, #64748b);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-  margin-bottom: 0.2rem;
-}
-.s-header p { font-size: 0.7rem; color: var(--text3); }
-.live-row {
-  display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem;
-}
-.live-pill {
-  display: flex; align-items: center; gap: 0.5rem;
-  background: var(--surface2); border: 1px solid var(--stroke);
-  padding: 0.3rem 0.75rem; border-radius: 99px;
-  font-size: 0.7rem; font-weight: 600; color: var(--text2);
-}
-.pulse {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--green); box-shadow: 0 0 8px rgba(74,222,128,0.7);
-  animation: pulse 2s infinite;
-}
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
-.cnes-chip {
-  font-size: 0.65rem; color: var(--blue);
-  background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.2);
-  padding: 0.2rem 0.6rem; border-radius: 99px;
-}
+  /* --- MAP PANEL --- */
+  .map-container { position: relative; background: #010409; }
+  .map-container svg { display: block; width: 100%; height: auto; }
 
-/* METRICS */
-.metrics {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 0.625rem; padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--stroke);
-}
-.mc {
-  background: var(--surface2); border: 1px solid var(--stroke);
-  border-radius: var(--r-sm); padding: 0.875rem;
-}
-.mc-lbl { font-size: 0.625rem; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.4rem; }
-.mc-val { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
-.mc-sub { font-size: 0.625rem; color: var(--text3); margin-top: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Tooltip */
+  .tooltip {
+    position: absolute; pointer-events: none; background: #0f172a; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius-md); padding: 1rem; font-size: 0.75rem; color: var(--text-secondary);
+    min-width: 220px; display: none; z-index: 50; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
+    backdrop-filter: blur(10px);
+  }
+  .tt-title { font-weight: 700; font-size: 0.875rem; color: var(--text-primary); margin-bottom: 0.5rem; }
+  .tt-row { display: flex; justify-content: space-between; padding: 0.25rem 0; }
+  .tt-label { color: var(--text-muted); }
+  .tt-value { color: var(--text-primary); font-weight: 500; }
+  .tt-wait { font-weight: 700; font-size: 1.1em; }
 
-/* BEST CARD */
-.best-card {
-  margin: 1rem 1.25rem;
-  background: linear-gradient(135deg, rgba(74,222,128,0.13), rgba(16,185,129,0.04));
-  border: 1px solid rgba(74,222,128,0.28);
-  border-radius: var(--r); padding: 1rem 1.125rem;
-  position: relative; overflow: hidden;
-}
-.best-card::after {
-  content:''; position:absolute; top:-50px; right:-50px;
-  width:130px; height:130px; border-radius:50%;
-  background:var(--green); filter:blur(70px); opacity:0.1; pointer-events:none;
-}
-.best-hdr { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.625rem; }
-.best-hdr svg { width:12px; height:12px; color:var(--green); }
-.best-lbl { font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--green); }
-.best-name { font-size:0.9375rem; font-weight:700; letter-spacing:-0.02em; margin-bottom:0.15rem; line-height:1.3; }
-.best-type { font-size:0.7rem; color:var(--text2); margin-bottom:0.75rem; }
-.best-stats { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
-.bst { background:rgba(0,0,0,0.3); border-radius:var(--r-sm); padding:0.625rem 0.75rem; border:1px solid rgba(255,255,255,0.04); }
-.bst-lbl { font-size:0.6rem; color:var(--text3); margin-bottom:0.2rem; }
-.bst-val { font-size:1.1rem; font-weight:700; }
+  /* --- SIDE PANEL --- */
+  .side-panel { display: flex; flex-direction: column; gap: 1.5rem; }
 
-/* FILTERS */
-.filter-section { padding: 0.875rem 1.25rem 0.625rem; border-bottom: 1px solid var(--stroke); }
-.filter-lbl { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text3); margin-bottom:0.5rem; }
-.filter-row { display:flex; gap:0.375rem; flex-wrap:wrap; }
-.fbtn {
-  display:flex; align-items:center; gap:0.4rem;
-  background:rgba(255,255,255,0.03); border:1px solid var(--stroke);
-  color:var(--text2); padding:0.3rem 0.75rem;
-  border-radius:99px; font-size:0.75rem; font-weight:500;
-  cursor:pointer; transition:all 0.12s; font-family:inherit;
-}
-.fbtn:hover { background:rgba(255,255,255,0.07); color:var(--text); }
-.fbtn.on { background:var(--blue); color:#01111f; border-color:var(--blue); font-weight:700; }
-.fbtn.on .fdot { background:#01111f !important; }
-.fdot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  /* Recommendation Card */
+  .recommend-card {
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border: 1px solid var(--accent-green);
+    border-radius: var(--radius-lg); padding: 1.5rem;
+    position: relative; overflow: hidden;
+  }
+  .recommend-card::before {
+    content: ''; position: absolute; top: -50px; right: -50px; width: 150px; height: 150px;
+    background: var(--accent-green); filter: blur(70px); opacity: 0.15;
+  }
+  .rec-header { display: flex; align-items: center; gap: 0.75rem; color: var(--accent-green); margin-bottom: 1.25rem; }
+  .rec-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .rec-name { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; letter-spacing: -0.02em; }
+  .rec-type { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 1.25rem; }
+  .rec-stats { display: flex; gap: 1rem; }
+  .rec-stat-box { 
+    flex: 1; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: var(--radius-md);
+    border: 1px solid rgba(255,255,255,0.03);
+  }
+  .rec-stat-label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+  .rec-stat-value { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); }
 
-/* RANKING */
-.rank-section { flex:1; }
-.rank-hdr {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:0.75rem 1.25rem 0.375rem;
-}
-.rank-title { font-size:0.8125rem; font-weight:700; }
-.sort-row { display:flex; gap:0.3rem; }
-.sbtn {
-  font-size:0.7rem; font-family:inherit;
-  background:rgba(255,255,255,0.04); border:1px solid var(--stroke);
-  color:var(--text2); padding:0.2rem 0.625rem; border-radius:99px; cursor:pointer;
-  transition:all 0.12s;
-}
-.sbtn:hover { color:var(--text); background:rgba(255,255,255,0.07); }
-.sbtn.on { background:rgba(56,189,248,0.12); border-color:rgba(56,189,248,0.3); color:var(--blue); }
+  /* --- RANKING PANEL --- */
+  .ranking-list { display: flex; flex-direction: column; }
+  
+  .rank-item {
+    display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    transition: var(--transition); cursor: pointer;
+  }
+  .rank-item:hover { background: rgba(255,255,255,0.02); }
+  .rank-item:last-child { border-bottom: none; }
+  
+  .rank-number { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); width: 20px; text-align: center; }
+  
+  .rank-icon { 
+    width: 40px; height: 40px; border-radius: var(--radius-md); 
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(255,255,255,0.05); flex-shrink: 0;
+  }
+  
+  .rank-info { flex: 1; min-width: 0; }
+  .rank-name { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rank-sub { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.1rem; }
+  
+  /* Heatbar Ocupação */
+  .heat-bar-container { width: 60px; height: 4px; background: #1a1f2e; border-radius: 2px; overflow: hidden; margin-top: 0.5rem; }
+  .heat-bar-fill { height: 100%; border-radius: 2px; }
 
-.rank-list { display:flex; flex-direction:column; }
-.ri {
-  display:flex; align-items:center; gap:0.75rem;
-  padding:0.75rem 1.25rem; border-bottom:1px solid rgba(255,255,255,0.03);
-  cursor:pointer; transition:background 0.1s;
-}
-.ri:hover { background:rgba(255,255,255,0.025); }
-.ri.active-item { background:rgba(56,189,248,0.07); }
-.ri:last-child { border-bottom:none; }
-.ri-num { font-size:0.7rem; font-weight:700; color:var(--text3); width:16px; text-align:center; flex-shrink:0; }
-.ri-icon { width:36px; height:36px; border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-.ri-info { flex:1; min-width:0; }
-.ri-name { font-size:0.8rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.ri-sub { font-size:0.65rem; color:var(--text3); margin-top:0.1rem; }
-.occ-bar { height:2px; background:rgba(255,255,255,0.06); border-radius:1px; margin-top:0.35rem; overflow:hidden; }
-.occ-fill { height:100%; border-radius:1px; transition:width 0.5s; }
-.ri-badge { flex-shrink:0; font-size:0.75rem; font-weight:700; padding:0.25rem 0.6rem; border-radius:var(--r-sm); }
-.bg { background:var(--green-bg); color:var(--green); }
-.ba { background:var(--amber-bg); color:var(--amber); }
-.br { background:var(--red-bg); color:var(--red); }
+  .rank-wait { 
+    font-size: 0.8125rem; font-weight: 700; padding: 0.4rem 0.75rem; border-radius: var(--radius-sm);
+    text-align: right; white-space: nowrap;
+  }
+  
+  /* Estilos de Espera G/A/R com Glow */
+  .wait-low { background: rgba(74, 222, 128, 0.1); color: var(--accent-green); box-shadow: 0 0 5px rgba(74, 222, 128, 0.2); }
+  .wait-med { background: rgba(251, 191, 36, 0.1); color: var(--accent-amber); box-shadow: 0 0 5px rgba(251, 191, 36, 0.2); }
+  .wait-high { background: rgba(248, 113, 113, 0.1); color: var(--accent-red); box-shadow: 0 0 5px rgba(248, 113, 113, 0.2); }
 
-/* PAGINATION */
-.pgn {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:0.625rem 1.25rem; border-top:1px solid var(--stroke);
-  font-size:0.7rem; color:var(--text3);
-}
-.pb {
-  font-size:0.7rem; font-family:inherit;
-  background:rgba(255,255,255,0.04); border:1px solid var(--stroke);
-  color:var(--text2); padding:0.25rem 0.625rem; border-radius:var(--r-sm); cursor:pointer;
-  transition:all 0.12s;
-}
-.pb:hover:not(:disabled) { background:rgba(255,255,255,0.08); color:var(--text); }
-.pb:disabled { opacity:0.3; cursor:default; }
+  /* --- FOOTER --- */
+  .footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.05); font-size: 0.7rem; color: var(--text-muted); text-align: center; line-height: 1.6; }
+  .footer a { color: var(--accent-blue); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
 
-/* MAP */
-#map {
-  flex: 1;
-  height: 100vh;
-  z-index: 1;
-}
-
-/* Leaflet dark overrides */
-.leaflet-tile-pane { filter: brightness(0.5) saturate(0.4) hue-rotate(185deg); }
-.leaflet-control-zoom { display:none; }
-.leaflet-attribution-flag { display:none !important; }
-.leaflet-control-attribution {
-  background: rgba(2,6,23,0.85) !important;
-  color: rgba(148,163,184,0.5) !important;
-  font-size: 9px !important;
-  border-radius: 4px 0 0 0 !important;
-}
-.leaflet-control-attribution a { color: rgba(56,189,248,0.6) !important; }
-
-/* Custom popup */
-.custom-popup .leaflet-popup-content-wrapper {
-  background: #0f172a;
-  border: 1px solid rgba(148,163,184,0.15);
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.6);
-  padding: 0;
-  overflow: hidden;
-}
-.custom-popup .leaflet-popup-tip-container { display:none; }
-.custom-popup .leaflet-popup-content { margin:0; width:240px !important; }
-.popup-inner { padding:1rem; }
-.popup-name { font-size:0.875rem; font-weight:700; color:#f1f5f9; line-height:1.3; margin-bottom:0.5rem; }
-.popup-row { display:flex; justify-content:space-between; align-items:center; padding:0.2rem 0; font-size:0.75rem; }
-.popup-lbl { color:#475569; }
-.popup-val { color:#94a3b8; font-weight:500; }
-.popup-wait { font-size:1rem; font-weight:800; }
-.popup-divider { border-top:1px solid rgba(255,255,255,0.06); margin:0.5rem 0; }
-.popup-footer { background:rgba(0,0,0,0.3); padding:0.5rem 1rem; font-size:0.65rem; color:#475569; }
-
-/* Responsive — mobile: mapa em cima, sidebar embaixo */
-@media (max-width: 768px) {
-  body { overflow: auto; }
-  .layout { flex-direction: column; height: auto; overflow: auto; }
-  .sidebar { width: 100%; height: auto; overflow: visible; border-right: none; border-bottom: 1px solid var(--stroke); }
-  .sidebar-inner { overflow: visible; }
-  #map { height: 55vw; min-height: 280px; flex: none; }
-}
+  /* --- RESPONSIVE --- */
+  @media (max-width: 1000px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .header { flex-direction: column; align-items: flex-start; }
+    .metrics-grid { grid-template-columns: 1fr; }
+    .header-titles h1 { font-size: 1.25rem; }
+  }
 </style>
 </head>
 <body>
-<div class="layout">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="s-header">
-      <h1>Monitor Saúde — Campinas/SP</h1>
-      <p>Rede SUS · Ministério da Saúde · IBGE 350950</p>
-      <div class="live-row">
-        <div class="live-pill"><div class="pulse"></div><span id="clock">--:--</span>&nbsp;· ao vivo</div>
-        <span class="cnes-chip">CNES / DataSUS</span>
+<div class="app">
+
+  <header class="header">
+    <div class="header-titles">
+      <h1>Monitor Saúde Pública Campinas</h1>
+      <p>Rede de Atendimento CNES IBGE 350950</p>
+    </div>
+    <div class="live-indicator">
+      <div class="pulse"></div>
+      <span id="clock">00:00</span>
+      <span style="color:var(--text-muted); font-weight: 400; margin-left: -0.25rem;">|</span>
+      <span style="text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em;">Ao Vivo</span>
+    </div>
+  </header>
+
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-header">
+        <div class="metric-icon">
+          <svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 6v12m6-6H6"/><rect width="20" height="20" x="2" y="2" rx="2"/></svg>
+        </div>
+        <span class="metric-label">Total Unidades</span>
       </div>
+      <div class="metric-value" id="m-total">--</div>
+      <div class="metric-footer">Cadastradas no CNES</div>
+    </div>
+    
+    <div class="metric-card">
+      <div class="metric-header">
+        <div class="metric-icon">
+          <svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 18a1.9 1.9 0 0 1-1.7-2.7c.2-.4.5-.8.9-1.1C8.7 12.5 10 11 10 9c0-1.1.9-2 2-2s2 .9 2 2c0 2 1.3 3.5 3.8 5.2.4.3.7.7.9 1.1A1.9 1.9 0 0 1 17 18H7Z"/><path d="M12 7V3"/><path d="M12 21a2 2 0 0 1-2-2h4a2 2 0 0 1-2 2Z"/></svg>
+        </div>
+        <span class="metric-label">Urgência 24h</span>
+      </div>
+      <div class="metric-value" id="m-urg" style="color:var(--accent-red); text-shadow: 0 0 10px var(--accent-red-glow);">--</div>
+      <div class="metric-footer">Hospitais & UPAs Abertos</div>
+    </div>
+    
+    <div class="metric-card">
+      <div class="metric-header">
+        <div class="metric-icon">
+          <svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <span class="metric-label">Espera Média</span>
+      </div>
+      <div class="metric-value" id="m-avg">--</div>
+      <div class="metric-footer">Tempo médio simulado</div>
     </div>
 
-    <div class="sidebar-inner">
+    <div class="metric-card">
+        <div class="metric-header">
+          <div class="metric-icon" style="color:var(--accent-amber)">
+            <svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          </div>
+          <span class="metric-label">Tendência (Horas)</span>
+        </div>
+        <div class="metric-value" style="color:var(--accent-amber)">Estável</div>
+        <div class="metric-footer">Simulação próxima hora</div>
+    </div>
+  </div>
 
-      <div class="metrics">
-        <div class="mc">
-          <div class="mc-lbl">Unidades</div>
-          <div class="mc-val" id="m-total">—</div>
-          <div class="mc-sub">cadastradas CNES</div>
-        </div>
-        <div class="mc">
-          <div class="mc-lbl">Urgência 24h</div>
-          <div class="mc-val" id="m-urg" style="color:var(--red)">—</div>
-          <div class="mc-sub">hospitais e UPAs</div>
-        </div>
-        <div class="mc">
-          <div class="mc-lbl">Menor espera</div>
-          <div class="mc-val" id="m-best" style="color:var(--green)">—</div>
-          <div class="mc-sub" id="m-best-n">—</div>
-        </div>
-        <div class="mc">
-          <div class="mc-lbl">Maior espera</div>
-          <div class="mc-val" id="m-worst" style="color:var(--amber)">—</div>
-          <div class="mc-sub" id="m-worst-n">—</div>
-        </div>
-      </div>
+  <div class="main-grid">
+    <div class="side-panel-left">
+        <div class="panel">
+            <div class="panel-header">
+              <div>
+                <span class="panel-title">Mapa Heatmap de Ocupação</span>
+                <p class="panel-subtitle">Visualização geográfica de fluxo</p>
+              </div>
+              <span style="font-size: 0.7rem; color: var(--text-muted);">Fonte: Dados Simulados</span>
+            </div>
+            
+            <div style="padding: 1.5rem 1.5rem 0.5rem 1.5rem;">
+                <div class="filters" id="filters">
+                    <button class="filter-btn active" data-t="all">Todos</button>
+                    <button class="filter-btn" data-t="hospital"><span class="type-dot" style="background:var(--color-hospital)"></span>Hospitais</button>
+                    <button class="filter-btn" data-t="upa"><span class="type-dot" style="background:var(--color-upa)"></span>UPAs 24h</button>
+                    <button class="filter-btn" data-t="ubs"><span class="type-dot" style="background:var(--color-ubs)"></span>UBS / Postos</button>
+                </div>
+            </div>
 
-      <div class="best-card">
-        <div class="best-hdr">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          <span class="best-lbl">Melhor opção agora</span>
+            <div class="map-container" id="mapwrap">
+              <svg id="map" viewBox="0 0 640 400" xmlns="http://www.w3.org/2000/svg"></svg>
+              <div class="tooltip" id="tip">
+                <div class="tt-title" id="tt-name"></div>
+                <div class="tt-row"><span class="tt-label">Tipo</span><span class="tt-value" id="tt-type"></span></div>
+                <div class="tt-row"><span class="tt-label">Urgência</span><span class="tt-value" id="tt-urg"></span></div>
+                <div class="tt-row"><span class="tt-label">CNES</span><span class="tt-value tt-cnes" id="tt-cnes"></span></div>
+                <div class="tt-row" style="margin-top:0.5rem; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.5rem;">
+                    <span class="tt-label">Espera Est.</span>
+                    <span class="tt-value tt-wait" id="tt-wait"></span>
+                </div>
+              </div>
+            </div>
         </div>
-        <div class="best-name" id="b-name">—</div>
-        <div class="best-type" id="b-type">—</div>
-        <div class="best-stats">
-          <div class="bst"><div class="bst-lbl">Espera estimada</div><div class="bst-val" id="b-wait" style="color:var(--green)">—</div></div>
-          <div class="bst"><div class="bst-lbl">Na fila agora</div><div class="bst-val" id="b-queue">—</div></div>
-        </div>
-      </div>
+    </div>
 
-      <div class="filter-section">
-        <div class="filter-lbl">Filtrar por tipo</div>
-        <div class="filter-row" id="filters">
-          <button class="fbtn on" data-t="all">Todos</button>
-          <button class="fbtn" data-t="hospital"><span class="fdot" style="background:var(--hospital)"></span>Hospital</button>
-          <button class="fbtn" data-t="upa"><span class="fdot" style="background:var(--upa)"></span>UPA 24h</button>
-          <button class="fbtn" data-t="ubs"><span class="fdot" style="background:var(--ubs)"></span>UBS</button>
+    <div class="side-panel">
+      <div class="recommend-card">
+        <div class="rec-header">
+            <svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span class="rec-label">Melhor Opção Agora</span>
         </div>
-      </div>
-
-      <div class="rank-section">
-        <div class="rank-hdr">
-          <span class="rank-title" id="rank-title">Ranking</span>
-          <div class="sort-row">
-            <button class="sbtn on" id="sw" onclick="setSort('wait')">Espera</button>
-            <button class="sbtn" id="sq" onclick="setSort('queue')">Fila</button>
+        <div class="rec-name" id="rec-name">--</div>
+        <div class="rec-type" id="rec-type">--</div>
+        <div class="rec-stats">
+          <div class="rec-stat-box">
+            <p class="rec-stat-label">Espera Mínima</p>
+            <p class="rec-stat-value" id="rec-wait" style="color:var(--accent-green)">--</p>
+          </div>
+          <div class="rec-stat-box">
+            <p class="rec-stat-label">Ocupação</p>
+            <p class="rec-stat-value">Livre</p>
           </div>
         </div>
-        <div class="rank-list" id="unit-list"></div>
-        <div class="pgn" id="pgn"></div>
       </div>
 
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Ranking por Menor Espera</span>
+          <select style="background:transparent; color: var(--text-muted); border: none; font-size: 0.75rem;">
+            <option>Tempo Espera</option>
+            <option>Ocupação</option>
+          </select>
+        </div>
+        <div class="ranking-list" id="unit-list">
+          </div>
+      </div>
     </div>
-  </aside>
+  </div>
 
-  <!-- MAPA REAL -->
-  <div id="map"></div>
+  <div class="footer">
+    Monitor Saúde Campinas Pro · Desenvolvido para visualização analítica.<br>
+    Dados de geolocalização: API CNES/DataSUS (Ministério da Saúde).<br>
+    <strong>AVISO IMPORTANTE: Tempos de espera e ocupação são ESTIMATIVAS SIMULADAS para fins de demonstração visual.</strong><br>
+    Código IBGE: 350950.
+  </div>
 
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+// Dados base (mesmos do original, compactados para clareza)
 const UNITS = [
-  {c:"2081399",n:"Hospital das Clínicas Unicamp",      t:"HOSPITAL GERAL",                    nat:"Estadual", lat:-22.8850,lng:-47.0660,u:"Sim"},
-  {c:"2077760",n:"Hospital Municipal Mario Gatti",      t:"HOSPITAL GERAL",                    nat:"Municipal",lat:-22.9100,lng:-47.0650,u:"Sim"},
-  {c:"2077884",n:"Hospital da Mulher Pinotti",          t:"HOSPITAL ESPECIALIZADO",             nat:"Estadual", lat:-22.8960,lng:-47.0550,u:"Sim"},
-  {c:"3153140",n:"CAISM Unicamp",                       t:"HOSPITAL ESPECIALIZADO",             nat:"Estadual", lat:-22.8880,lng:-47.0680,u:"Sim"},
-  {c:"2079087",n:"Hospital Estadual de Sumaré",         t:"HOSPITAL GERAL",                    nat:"Estadual", lat:-22.8200,lng:-47.2600,u:"Sim"},
-  {c:"6883841",n:"UPA 24h Anchieta",                    t:"UNIDADE DE PRONTO ATENDIMENTO",      nat:"Municipal",lat:-22.9500,lng:-47.1200,u:"Sim"},
-  {c:"6883922",n:"UPA 24h Campo Grande",                t:"UNIDADE DE PRONTO ATENDIMENTO",      nat:"Municipal",lat:-22.9350,lng:-47.1050,u:"Sim"},
-  {c:"6657432",n:"UPA 24h Sousas",                      t:"UNIDADE DE PRONTO ATENDIMENTO",      nat:"Municipal",lat:-22.8750,lng:-46.9800,u:"Sim"},
-  {c:"6657521",n:"UPA 24h Ouro Verde",                  t:"UNIDADE DE PRONTO ATENDIMENTO",      nat:"Municipal",lat:-22.9800,lng:-47.1500,u:"Sim"},
-  {c:"2077558",n:"CS Barão Geraldo",                    t:"CENTRO DE SAUDE / UBS",              nat:"Municipal",lat:-22.8400,lng:-47.0680,u:"Não"},
-  {c:"2077590",n:"CS DIC III",                          t:"CENTRO DE SAUDE / UBS",              nat:"Municipal",lat:-22.9650,lng:-47.1380,u:"Não"},
-  {c:"2077647",n:"CS Jardim das Bandeiras",             t:"CENTRO DE SAUDE / UBS",              nat:"Municipal",lat:-22.9220,lng:-47.0820,u:"Não"},
-  {c:"2770450",n:"CS Ipaussurama",                      t:"CENTRO DE SAUDE / UBS",              nat:"Municipal",lat:-22.8850,lng:-47.0900,u:"Não"},
-  {c:"2077639",n:"CS Capivari",                         t:"CENTRO DE SAUDE / UBS",              nat:"Municipal",lat:-22.9100,lng:-47.0300,u:"Não"},
-  {c:"2077818",n:"Ambulatório Ouro Verde",              t:"POLICLINICA",                        nat:"Municipal",lat:-22.9750,lng:-47.1580,u:"Não"},
+  {c:"2081399",n:"Hospital das Clínicas Unicamp",t:"HOSPITAL GERAL",lat:"-22.8850",lng:"-47.0660",u:"Sim"},
+  {c:"2077760",n:"Hospital Municipal Mario Gatti",t:"HOSPITAL GERAL",lat:"-22.9100",lng:"-47.0650",u:"Sim"},
+  {c:"2077884",n:"Hospital da Mulher Pinotti",t:"HOSPITAL ESPECIALIZADO",lat:"-22.8960",lng:"-47.0550",u:"Sim"},
+  {c:"3153140",n:"CAISM Unicamp",t:"HOSPITAL ESPECIALIZADO",lat:"-22.8880",lng:"-47.0680",u:"Sim"},
+  {c:"2079087",n:"Hospital Estadual de Sumaré",t:"HOSPITAL GERAL",lat:"-22.8200",lng:"-47.2600",u:"Sim"},
+  {c:"6883841",n:"UPA 24h Anchieta",t:"UNIDADE DE PRONTO ATENDIMENTO",lat:"-22.9500",lng:"-47.1200",u:"Sim"},
+  {c:"6883922",n:"UPA 24h Campo Grande",t:"UNIDADE DE PRONTO ATENDIMENTO",lat:"-22.9350",lng:"-47.1050",u:"Sim"},
+  {c:"6657432",n:"UPA 24h Sousas",t:"UNIDADE DE PRONTO ATENDIMENTO",lat:"-22.8750",lng:"-46.9800",u:"Sim"},
+  {c:"6657521",n:"UPA 24h Ouro Verde",t:"UNIDADE DE PRONTO ATENDIMENTO",lat:"-22.9800",lng:"-47.1500",u:"Sim"},
+  {c:"2077558",n:"CS Barão Geraldo",t:"CENTRO DE SAUDE/UBS",lat:"-22.8400",lng:"-47.0680",u:"Não"},
+  {c:"2077590",n:"CS DIC III",t:"CENTRO DE SAUDE/UBS",lat:"-22.9650",lng:"-47.1380",u:"Não"},
+  {c:"2077647",n:"CS Jardim das Bandeiras",t:"CENTRO DE SAUDE/UBS",lat:"-22.9220",lng:"-47.0820",u:"Não"},
+  {c:"2770450",n:"CS Ipaussurama",t:"CENTRO DE SAUDE/UBS",lat:"-22.8850",lng:"-47.0900",u:"Não"}
 ];
 
-const CFG = {
-  hospital:{ color:"#f43f5e", label:"Hospital SUS",  wait:110, cap:80,  qb:65 },
-  upa:     { color:"#f59e0b", label:"UPA 24h",        wait:55,  cap:40,  qb:28 },
-  ubs:     { color:"#10b981", label:"UBS / Posto",    wait:18,  cap:20,  qb:8  },
-  other:   { color:"#8b5cf6", label:"Outro serviço",  wait:28,  cap:25,  qb:12 },
+// Funções Utilitárias de Classificação e Simulação
+function classify(u){
+  const tp=u.t.toUpperCase();
+  if(/HOSPITAL/.test(tp)) return "hospital";
+  if(/UPA|PRONTO/.test(tp)) return "upa";
+  return "ubs";
+}
+
+const TYPE_CONFIG = {
+  hospital: { color: "#f43f5e", label: "Hospital", icon: '<svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 6v12m6-6H6"/><rect width="20" height="20" x="2" y="2" rx="2"/></svg>', wait: 110, cap: 80 },
+  upa: { color: "#f59e0b", label: "UPA 24h", icon: '<svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 18a1.9 1.9 0 0 1-1.7-2.7c.2-.4.5-.8.9-1.1C8.7 12.5 10 11 10 9c0-1.1.9-2 2-2s2 .9 2 2c0 2 1.3 3.5 3.8 5.2.4.3.7.7.9 1.1A1.9 1.9 0 0 1 17 18H7Z"/><path d="M12 7V3"/><path d="M12 21a2 2 0 0 1-2-2h4a2 2 0 0 1-2 2Z"/></svg>', wait: 55, cap: 40 },
+  ubs: { color: "#10b981", label: "UBS", icon: '<svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>', wait: 18, cap: 20 }
 };
 
-function classify(u){
-  const t=u.t.toUpperCase();
-  if(/HOSPITAL/.test(t)) return "hospital";
-  if(/UPA|PRONTO/.test(t)) return "upa";
-  if(/BASIC|UBS|SAUDE|CENTRO|POSTO/.test(t)) return "ubs";
-  return "other";
+// Geração de dados simulados "persistentes" baseados no código CNES
+function getHash(s){ return s.split("").reduce((a,b)=>(((a<<5)-a)+b.charCodeAt(0))|0,0); }
+function fakeWait(u){ const h = getHash(u.c); return Math.max(5, TYPE_CONFIG[classify(u)].wait + (h%30)); }
+function fakeQueue(u){ const h = getHash(u.c); return Math.max(1, TYPE_CONFIG[classify(u)].cap/2 + (h%15)); }
+function fmt(m){ return m<60?m+"m":Math.floor(m/60)+"h"+(m%60?(m%60+"m"): ""); }
+function waitClass(w){ return w<=30?"wait-low":w<=80?"wait-med":"wait-high"; }
+
+let activeType = "all";
+
+// --- RENDERIZAÇÃO ---
+
+function render() {
+  const filtered = UNITS.filter(u => activeType === "all" || classify(u) === activeType);
+  const sorted = [...filtered].sort((a,b) => fakeWait(a) - fakeWait(b));
+
+  updateMetrics(filtered, sorted);
+  drawMap(filtered);
+  drawList(sorted);
 }
-function hashN(s){ return Math.abs(s.split("").reduce((a,c)=>(((a<<5)-a)+c.charCodeAt(0))|0,0)); }
-function fakeWait(u){ const h=hashN(u.c),c=CFG[classify(u)]; return Math.max(5,c.wait+(h%36)-18); }
-function fakeQ(u){    const h=hashN(u.c),c=CFG[classify(u)]; return Math.max(1,c.qb+(h%22)-11); }
-function fmt(m){ return m<60?m+"min":Math.floor(m/60)+"h"+(m%60?m%60+"min":""); }
-function wColor(w){ return w<=30?"#4ade80":w<=80?"#fbbf24":"#f87171"; }
-function wClass(w){ return w<=30?"bg":w<=80?"ba":"br"; }
 
-let activeType="all", sortBy="wait", page=0;
-const PER=6;
-let leafletMarkers=[], mapInstance=null, activeMarkerUnit=null;
+function updateMetrics(f, s) {
+  document.getElementById("m-total").textContent = f.length;
+  document.getElementById("m-urg").textContent = f.filter(u=>u.u==="Sim").length;
+  
+  if(s.length) {
+    const totalWait = s.reduce((sum, u) => sum + fakeWait(u), 0);
+    document.getElementById("m-avg").textContent = fmt(Math.round(totalWait / f.length));
+    
+    // Melhor Opção
+    document.getElementById("rec-name").textContent = s[0].n;
+    document.getElementById("rec-type").textContent = s[0].t;
+    document.getElementById("rec-wait").textContent = fmt(fakeWait(s[0]));
+  }
+}
 
-// ── MAP INIT ──
-function initMap(){
-  mapInstance = L.map("map", {
-    center: [-22.9099, -47.0626],
-    zoom: 12,
-    zoomControl: false,
-    attributionControl: true,
+function drawList(s) {
+  const container = document.getElementById("unit-list");
+  container.innerHTML = "";
+  
+  s.slice(0, 6).forEach((u, i) => {
+    const tp = classify(u);
+    const conf = TYPE_CONFIG[tp];
+    const wait = fakeWait(u);
+    const q = fakeQueue(u);
+    const occ = Math.min(100, Math.round(q / conf.cap * 100));
+    
+    // Cor do heatbar baseada na ocupação
+    const heatColor = occ < 40 ? var('--accent-green') : occ < 75 ? var('--accent-amber') : var('--accent-red');
+
+    container.innerHTML += `
+      <div class="rank-item">
+        <span class="rank-number">#${i+1}</span>
+        <div class="rank-icon" style="background: ${conf.color}10; color: ${conf.color}; border-color: ${conf.color}20;">
+          ${conf.icon}
+        </div>
+        <div class="rank-info">
+          <p class="rank-name">${u.n}</p>
+          <p class="rank-sub">${u.t} · CNES ${u.c}</p>
+          <div class="heat-bar-container">
+            <div class="heat-bar-fill" style="width: ${occ}%; background: ${occ < 40 ? '#4ade80' : occ < 75 ? '#fbbf24' : '#f87171'};"></div>
+          </div>
+        </div>
+        <div class="rank-wait ${waitClass(wait)}">${fmt(wait)}</div>
+      </div>
+    `;
   });
-
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    maxZoom: 19,
-  }).addTo(mapInstance);
-
-  L.control.zoom({ position:"bottomright" }).addTo(mapInstance);
 }
 
-// ── CUSTOM MARKER ──
-function makeIcon(u){
-  const tp=classify(u), c=CFG[tp].color;
-  const w=fakeWait(u), wc=wColor(w);
-  const q=fakeQ(u);
-  const size = tp==="hospital"?38:tp==="upa"?34:28;
-
-  let shape="";
-  if(tp==="hospital"){
-    shape=`<circle cx="19" cy="19" r="13" fill="${c}" stroke="${wc}" stroke-width="2.5"/>
-      <rect x="14" y="17.5" width="10" height="3" rx="1" fill="rgba(255,255,255,0.9)"/>
-      <rect x="17.5" y="14" width="3" height="10" rx="1" fill="rgba(255,255,255,0.9)"/>`;
-  } else if(tp==="upa"){
-    shape=`<rect x="6" y="6" width="26" height="26" rx="5" fill="${c}" stroke="${wc}" stroke-width="2.5"/>
-      <text x="19" y="23" text-anchor="middle" font-size="9" font-weight="800" fill="rgba(255,255,255,0.95)" font-family="Inter,sans-serif">24h</text>`;
-  } else if(tp==="ubs"){
-    shape=`<polygon points="19,5 31,29 7,29" fill="${c}" stroke="${wc}" stroke-width="2"/>`;
-  } else {
-    shape=`<circle cx="19" cy="19" r="11" fill="${c}" stroke="${wc}" stroke-width="2"/>`;
+// --- MAPA (Mesma lógica SVG, visual escuro) ---
+function drawMap(f) {
+  const svg = document.getElementById("map");
+  svg.innerHTML = "";
+  const W=640, H=400, PAD=40;
+  
+  const lats = f.map(u=>parseFloat(u.lat)), lngs=f.map(u=>parseFloat(u.lng));
+  const minLat=Math.min(...lats)-0.01, maxLat=Math.max(...lats)+0.01;
+  const minLng=Math.min(...lngs)-0.02, maxLng=Math.max(...lngs)+0.02;
+  
+  function proj(lat,lng){
+    return [PAD+(parseFloat(lng)-minLng)/(maxLng-minLng)*(W-PAD*2), PAD+(maxLat-parseFloat(lat))/(maxLat-minLat)*(H-PAD*2)];
   }
 
-  // glow ring + queue bubble
-  const svg=`<svg width="38" height="38" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="19" cy="19" r="17" fill="${wc}" opacity="0.18"/>
-    ${shape}
-    <circle cx="28" cy="10" r="8" fill="${wc}"/>
-    <text x="28" y="14" text-anchor="middle" font-size="7" font-weight="800" fill="#010409" font-family="Inter,sans-serif">${q>99?"99+":q}</text>
-  </svg>`;
+  // Desenhar pontos
+  f.forEach(u => {
+    const [x,y] = proj(u.lat, u.lng);
+    const wait = fakeWait(u);
+    const color = wait <= 30 ? '#4ade80' : wait <= 80 ? '#fbbf24' : '#f87171';
+    
+    const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+    g.style.cursor="pointer";
+    
+    // Glow effect
+    const glow = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    glow.setAttribute("cx",x); glow.setAttribute("cy",y); glow.setAttribute("r", 12);
+    glow.setAttribute("fill", color); glow.setAttribute("opacity", "0.2");
+    g.appendChild(glow);
 
-  return L.divIcon({
-    html: svg,
-    iconSize:[38,38],
-    iconAnchor:[19,19],
-    popupAnchor:[0,-22],
-    className:"",
-  });
-}
-
-function popupHTML(u){
-  const w=fakeWait(u), q=fakeQ(u), tp=classify(u), c=CFG[tp];
-  const wc=wColor(w);
-  return `<div class="popup-inner">
-    <div class="popup-name">${u.n}</div>
-    <div class="popup-row"><span class="popup-lbl">Tipo</span><span class="popup-val">${u.t}</span></div>
-    <div class="popup-row"><span class="popup-lbl">Natureza</span><span class="popup-val">${u.nat}</span></div>
-    <div class="popup-row"><span class="popup-lbl">Urgência 24h</span><span class="popup-val">${u.u}</span></div>
-    <div class="popup-row"><span class="popup-lbl">CNES</span><span class="popup-val" style="color:#38bdf8">${u.c}</span></div>
-    <div class="popup-divider"></div>
-    <div class="popup-row">
-      <span class="popup-lbl">Espera estimada</span>
-      <span class="popup-wait" style="color:${wc}">${fmt(w)}</span>
-    </div>
-    <div class="popup-row">
-      <span class="popup-lbl">Na fila agora</span>
-      <span class="popup-val">${q} pessoas</span>
-    </div>
-  </div>
-  <div class="popup-footer">Dados simulados · CNES/DataSUS</div>`;
-}
-
-function drawMarkers(){
-  leafletMarkers.forEach(m=>m.remove());
-  leafletMarkers=[];
-  const f=UNITS.filter(u=>activeType==="all"||classify(u)===activeType);
-  f.forEach(u=>{
-    const m=L.marker([u.lat,u.lng],{icon:makeIcon(u)});
-    m.bindPopup(popupHTML(u),{className:"custom-popup",maxWidth:260,minWidth:240});
-    m.on("click",()=>{
-      document.querySelectorAll(".ri").forEach(el=>el.classList.remove("active-item"));
-      const el=document.querySelector(`[data-cnes="${u.c}"]`);
-      if(el){ el.classList.add("active-item"); el.scrollIntoView({behavior:"smooth",block:"nearest"}); }
+    const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("cx",x); c.setAttribute("cy",y); c.setAttribute("r", 6);
+    c.setAttribute("fill", color); 
+    c.setAttribute("stroke", "#000"); c.setAttribute("stroke-width", "2");
+    g.appendChild(c);
+    
+    // Interação Tooltip (Simplificada)
+    const tip = document.getElementById("tip");
+    const wrap = document.getElementById("mapwrap");
+    g.addEventListener("mouseenter", (e) => {
+        document.getElementById("tt-name").textContent = u.n;
+        document.getElementById("tt-type").textContent = u.t;
+        document.getElementById("tt-urg").textContent = u.u;
+        document.getElementById("tt-cnes").textContent = u.c;
+        document.getElementById("tt-wait").textContent = fmt(wait);
+        document.getElementById("tt-wait").className = "tt-value tt-wait " + waitClass(wait);
+        tip.style.display="block";
     });
-    m.addTo(mapInstance);
-    leafletMarkers.push(m);
+    g.addEventListener("mousemove", e => {
+      const r = wrap.getBoundingClientRect();
+      tip.style.left = (e.clientX - r.left + 15) + "px";
+      tip.style.top = (e.clientY - r.top - 15) + "px";
+    });
+    g.addEventListener("mouseleave", () => tip.style.display="none");
+
+    svg.appendChild(g);
   });
 }
 
-// ── SIDEBAR RENDER ──
-function updateMetrics(){
-  const f=UNITS.filter(u=>activeType==="all"||classify(u)===activeType);
-  const s=[...f].sort((a,b)=>fakeWait(a)-fakeWait(b));
-  document.getElementById("m-total").textContent=f.length;
-  document.getElementById("m-urg").textContent=f.filter(u=>u.u==="Sim").length;
-  if(!s.length) return;
-  const best=s[0],worst=s[s.length-1];
-  document.getElementById("m-best").textContent=fmt(fakeWait(best));
-  document.getElementById("m-best-n").textContent=best.n;
-  document.getElementById("m-worst").textContent=fmt(fakeWait(worst));
-  document.getElementById("m-worst-n").textContent=worst.n;
-  document.getElementById("b-name").textContent=best.n;
-  document.getElementById("b-type").textContent=best.t;
-  document.getElementById("b-wait").textContent=fmt(fakeWait(best));
-  document.getElementById("b-queue").textContent=fakeQ(best)+" pessoas";
-}
+// --- INICIALIZAÇÃO ---
 
-function renderList(){
-  const f=UNITS.filter(u=>activeType==="all"||classify(u)===activeType);
-  const s=[...f].sort((a,b)=>sortBy==="wait"?fakeWait(a)-fakeWait(b):fakeQ(a)-fakeQ(b));
-  const start=page*PER, slice=s.slice(start,start+PER);
-  const totalPages=Math.ceil(s.length/PER);
-
-  document.getElementById("rank-title").textContent=`${s.length} unidades — por ${sortBy==="wait"?"espera":"fila"}`;
-
-  document.getElementById("unit-list").innerHTML=slice.map((u,i)=>{
-    const tp=classify(u), c=CFG[tp];
-    const w=fakeWait(u), q=fakeQ(u), wc=wColor(w);
-    const occ=Math.min(100,Math.round(q/c.cap*100));
-    const iconSvg=tp==="hospital"
-      ?`<circle cx="10" cy="10" r="8" fill="${c.color}"/><rect x="6.5" y="8.5" width="7" height="3" rx=".5" fill="rgba(255,255,255,.9)"/><rect x="8.5" y="6.5" width="3" height="7" rx=".5" fill="rgba(255,255,255,.9)"/>`
-      :tp==="upa"
-      ?`<rect x="2" y="2" width="16" height="16" rx="3" fill="${c.color}"/><text x="10" y="13" text-anchor="middle" font-size="5.5" font-weight="800" fill="rgba(255,255,255,.9)" font-family="Inter,sans-serif">24h</text>`
-      :tp==="ubs"
-      ?`<polygon points="10,2 18,17 2,17" fill="${c.color}"/>`
-      :`<circle cx="10" cy="10" r="8" fill="${c.color}"/>`;
-    return `<div class="ri" data-cnes="${u.c}" onclick="focusUnit('${u.c}')">
-      <span class="ri-num">${start+i+1}</span>
-      <div class="ri-icon" style="background:${c.color}18;border:1px solid ${c.color}30">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">${iconSvg}</svg>
-      </div>
-      <div class="ri-info">
-        <div class="ri-name">${u.n}</div>
-        <div class="ri-sub">${u.t} · ${u.c}</div>
-        <div class="occ-bar"><div class="occ-fill" style="width:${occ}%;background:${wc}"></div></div>
-      </div>
-      <span class="ri-badge ${wClass(w)}">${fmt(w)}</span>
-    </div>`;
-  }).join("");
-
-  document.getElementById("pgn").innerHTML=totalPages>1
-    ?`<button class="pb" onclick="goPage(-1)" ${page===0?"disabled":""}>← Ant.</button>
-       <span>${page+1} / ${totalPages}</span>
-       <button class="pb" onclick="goPage(1)" ${page>=totalPages-1?"disabled":""}>Próx. →</button>`
-    :`<span>${s.length} unidades</span>`;
-}
-
-window.focusUnit=function(cnes){
-  const u=UNITS.find(x=>x.c===cnes); if(!u) return;
-  mapInstance.flyTo([u.lat,u.lng],15,{duration:0.8});
-  const m=leafletMarkers.find(mk=>{
-    const ll=mk.getLatLng();
-    return Math.abs(ll.lat-u.lat)<0.0001&&Math.abs(ll.lng-u.lng)<0.0001;
-  });
-  if(m) setTimeout(()=>m.openPopup(),850);
-  document.querySelectorAll(".ri").forEach(el=>el.classList.remove("active-item"));
-  const el=document.querySelector(`[data-cnes="${cnes}"]`);
-  if(el) el.classList.add("active-item");
-};
-
-window.goPage=d=>{
-  const f=UNITS.filter(u=>activeType==="all"||classify(u)===activeType);
-  const t=Math.ceil(f.length/PER);
-  page=Math.max(0,Math.min(page+d,t-1));
-  renderList();
-};
-
-window.setSort=v=>{
-  sortBy=v; page=0;
-  document.getElementById("sw").classList.toggle("on",v==="wait");
-  document.getElementById("sq").classList.toggle("on",v==="queue");
-  renderList();
-};
-
-document.getElementById("filters").addEventListener("click",e=>{
-  const btn=e.target.closest("[data-t]"); if(!btn) return;
-  activeType=btn.dataset.t; page=0;
-  document.querySelectorAll(".fbtn").forEach(b=>b.classList.toggle("on",b.dataset.t===activeType));
-  updateMetrics(); drawMarkers(); renderList();
+// Filtros
+document.getElementById("filters").addEventListener("click", e => {
+  if(e.target.dataset.t) {
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    e.target.classList.add("active");
+    activeType = e.target.dataset.t;
+    render();
+  }
 });
 
+// Relógio
 function updateClock(){
-  document.getElementById("clock").textContent=new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+  const n = new Date();
+  document.getElementById("clock").textContent = n.toLocaleTimeString("pt-BR", {hour:'2-digit', minute:'2-digit'});
 }
 
-// ── START ──
-initMap();
+// Start
 updateClock();
-setInterval(updateClock,30000);
-setInterval(()=>{ drawMarkers(); updateMetrics(); renderList(); },12000);
-drawMarkers();
-updateMetrics();
-renderList();
+setInterval(updateClock, 10000);
+render(); // Primeira renderização
+
 </script>
 </body>
 </html>
