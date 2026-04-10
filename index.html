@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor Saúde Pública — Campinas/SP</title>
+<meta name="description" content="Acompanhe em tempo real as filas e tempos de espera das unidades de saúde pública de Campinas: hospitais, UPAs e UBS cadastradas no CNES.">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --surface2: #f1f0ec;
+    --border: rgba(0,0,0,0.10);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text2: #5f5e5a;
+    --text3: #888780;
+    --green: #1D9E75; --green-light: #E1F5EE; --green-dark: #085041;
+    --amber: #BA7517; --amber-light: #FAEEDA; --amber-dark: #633806;
+    --red: #E24B4A; --red-light: #FCEBEB; --red-dark: #791F1F;
+    --blue: #185FA5; --blue-light: #E6F1FB; --blue-dark: #0C447C;
+    --hospital: #D85A30; --upa: #BA7517; --ubs: #639922; --other: #7F77DD;
+    --radius: 8px; --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18; --surface: #242422; --surface2: #2e2e2b;
+      --border: rgba(255,255,255,0.10); --border2: rgba(255,255,255,0.18);
+      --text: #f0efe9; --text2: #b4b2a9; --text3: #888780;
+      --green-light: #0a2e22; --green-dark: #9FE1CB;
+      --amber-light: #2a1e08; --amber-dark: #FAC775;
+      --red-light: #2a0d0d; --red-dark: #F09595;
+      --blue-light: #0a1e38; --blue-dark: #85B7EB;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .app { max-width: 1100px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+
+  /* header */
+  .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 10px; }
+  .header-left h1 { font-size: 20px; font-weight: 600; color: var(--text); }
+  .header-left p { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .live-pill { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--green-dark); background: var(--green-light); padding: 6px 14px; border-radius: 20px; border: 1px solid var(--green); white-space: nowrap; }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* metrics */
+  .metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 1.25rem; }
+  .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; }
+  .metric-label { font-size: 11px; color: var(--text2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .metric-value { font-size: 24px; font-weight: 600; color: var(--text); line-height: 1; }
+  .metric-sub { font-size: 11px; color: var(--text3); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* filters */
+  .filters { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+  .filter-label { font-size: 12px; color: var(--text2); }
+  .fbtn { font-size: 12px; padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.12s; }
+  .fbtn:hover { background: var(--surface2); }
+  .fbtn.on { font-weight: 500; }
+  .fbtn.on[data-t="all"]      { background: var(--blue-light); border-color: var(--blue); color: var(--blue-dark); }
+  .fbtn.on[data-t="hospital"] { background: #FAECE7; border-color: var(--hospital); color: #712B13; }
+  .fbtn.on[data-t="upa"]      { background: var(--amber-light); border-color: var(--amber); color: var(--amber-dark); }
+  .fbtn.on[data-t="ubs"]      { background: #EAF3DE; border-color: var(--ubs); color: #27500A; }
+  .fbtn.on[data-t="other"]    { background: #EEEDFE; border-color: #AFA9EC; color: #3C3489; }
+  .ftype-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* main grid */
+  .main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 14px; align-items: start; }
+
+  /* map */
+  .map-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .panel-header { padding: 11px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .panel-header span { font-size: 13px; font-weight: 500; color: var(--text); }
+  .source-chip { font-size: 10px; color: var(--blue-dark); background: var(--blue-light); padding: 2px 9px; border-radius: 20px; border: 1px solid rgba(24,95,165,0.25); }
+  .map-svg-wrap { position: relative; background: #dde8dd; }
+  .map-svg-wrap svg { display: block; width: 100%; height: auto; }
+  .map-legend { padding: 8px 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; }
+  .leg-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text2); }
+
+  /* tooltip */
+  .tooltip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 10px 13px; font-size: 12px; color: var(--text); min-width: 180px; display: none; z-index: 30; }
+  .tt-name { font-weight: 600; font-size: 13px; margin-bottom: 6px; line-height: 1.3; color: var(--text); }
+  .tt-row { display: flex; justify-content: space-between; gap: 10px; color: var(--text2); margin-top: 3px; font-size: 11px; }
+  .tt-val { color: var(--text); font-weight: 500; }
+  .tt-cnes { color: var(--blue); }
+
+  /* side */
+  .side-panel { display: flex; flex-direction: column; gap: 10px; }
+  .best-card { background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--green); border-radius: var(--radius-lg); padding: 14px; }
+  .best-label { font-size: 10px; font-weight: 600; color: var(--green-dark); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 7px; display: flex; align-items: center; gap: 5px; }
+  .best-label svg { width: 14px; height: 14px; }
+  .best-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 2px; line-height: 1.3; }
+  .best-type { font-size: 11px; color: var(--text2); margin-bottom: 10px; }
+  .best-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .bstat { background: var(--surface2); border-radius: var(--radius); padding: 8px 11px; }
+  .bstat-label { font-size: 10px; color: var(--text2); margin-bottom: 3px; }
+  .bstat-val { font-size: 16px; font-weight: 600; color: var(--text); }
+
+  /* ranking */
+  .ranking-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .sort-btn { font-size: 11px; color: var(--text2); font-weight: 400; background: transparent; border: none; cursor: pointer; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--border); }
+  .sort-btn:hover { background: var(--surface2); }
+  .unit-row { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+  .unit-row:last-child { border-bottom: none; }
+  .unit-row:hover { background: var(--surface2); }
+  .rank-num { font-size: 11px; font-weight: 600; color: var(--text3); min-width: 18px; text-align: center; }
+  .unit-icon { width: 32px; height: 32px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .unit-info { flex: 1; min-width: 0; }
+  .unit-name { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .unit-sub { font-size: 10px; color: var(--text3); margin-top: 1px; }
+  .occ-bar { height: 3px; border-radius: 2px; background: var(--border); margin-top: 4px; overflow: hidden; }
+  .occ-fill { height: 100%; border-radius: 2px; }
+  .wait-badge { flex-shrink: 0; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+  .wait-g { background: var(--green-light); color: var(--green-dark); }
+  .wait-a { background: var(--amber-light); color: var(--amber-dark); }
+  .wait-r { background: var(--red-light); color: var(--red-dark); }
+
+  /* pagination */
+  .pagination { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text2); }
+  .pg-btn { padding: 4px 12px; font-size: 11px; border: 1px solid var(--border2); border-radius: var(--radius); background: var(--surface); color: var(--text); cursor: pointer; }
+  .pg-btn:hover:not(:disabled) { background: var(--surface2); }
+  .pg-btn:disabled { opacity: 0.3; cursor: default; }
+
+  /* footer */
+  .footer { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 11px; color: var(--text3); line-height: 1.7; }
+  .footer a { color: var(--blue); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+
+  /* responsive */
+  @media (max-width: 700px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .header-left h1 { font-size: 17px; }
+  }
+  @media (max-width: 400px) {
+    .metrics { grid-template-columns: 1fr 1fr; }
+    .metric-value { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-left">
+      <h1>Monitor Saúde Pública — Campinas/SP</h1>
+      <p>Cadastro Nacional de Estabelecimentos de Saúde · IBGE 350950 · Ministério da Saúde</p>
+    </div>
+    <div class="live-pill">
+      <div class="pulse"></div>
+      <span id="clock">--:--</span> · ao vivo
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">Total de unidades</div>
+      <div class="metric-value" id="m-total">—</div>
+      <div class="metric-sub">CNES cadastradas</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Com urgência 24h</div>
+      <div class="metric-value" id="m-urg">—</div>
+      <div class="metric-sub" style="color:var(--red)">&#9679; abertas agora</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Menor espera</div>
+      <div class="metric-value" id="m-best" style="color:var(--green)">—</div>
+      <div class="metric-sub" id="m-best-name">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Maior espera</div>
+      <div class="metric-value" id="m-worst" style="color:var(--red)">—</div>
+      <div class="metric-sub" id="m-worst-name">—</div>
+    </div>
+  </div>
+
+  <div class="filters" id="filters">
+    <span class="filter-label">Filtrar:</span>
+    <button class="fbtn on" data-t="all"><span class="ftype-dot" style="background:#378ADD"></span>Todos</button>
+    <button class="fbtn" data-t="hospital"><span class="ftype-dot" style="background:var(--hospital)"></span>Hospital</button>
+    <button class="fbtn" data-t="upa"><span class="ftype-dot" style="background:var(--upa)"></span>UPA 24h</button>
+    <button class="fbtn" data-t="ubs"><span class="ftype-dot" style="background:var(--ubs)"></span>UBS</button>
+    <button class="fbtn" data-t="other"><span class="ftype-dot" style="background:var(--other)"></span>Outros</button>
+  </div>
+
+  <div class="main-grid">
+    <div>
+      <div class="map-panel">
+        <div class="panel-header">
+          <span>Mapa de unidades</span>
+          <span class="source-chip">Fonte: CNES / DataSUS</span>
+        </div>
+        <div class="map-svg-wrap" id="mapwrap">
+          <svg id="map" viewBox="0 0 640 400" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div class="tooltip" id="tip">
+            <div class="tt-name" id="tt-name"></div>
+            <div class="tt-row"><span>Tipo</span><span class="tt-val" id="tt-type"></span></div>
+            <div class="tt-row"><span>Natureza</span><span class="tt-val" id="tt-nat"></span></div>
+            <div class="tt-row"><span>Urgência</span><span class="tt-val" id="tt-urg"></span></div>
+            <div class="tt-row"><span>Vínculo SUS</span><span class="tt-val" id="tt-sus"></span></div>
+            <div class="tt-row"><span>Espera est.</span><span class="tt-val" id="tt-wait"></span></div>
+            <div class="tt-row"><span>CNES</span><span class="tt-val tt-cnes" id="tt-cnes"></span></div>
+          </div>
+        </div>
+        <div class="map-legend">
+          <div class="leg-item">
+            <svg width="13" height="13" viewBox="0 0 13 13"><circle cx="6.5" cy="6.5" r="5.5" fill="var(--hospital)"/></svg>Hospital
+          </div>
+          <div class="leg-item">
+            <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1" width="11" height="11" rx="2" fill="var(--upa)"/></svg>UPA 24h
+          </div>
+          <div class="leg-item">
+            <svg width="13" height="13" viewBox="0 0 13 13"><polygon points="6.5,1 12,11.5 1,11.5" fill="var(--ubs)"/></svg>UBS / Posto
+          </div>
+          <div class="leg-item">
+            <svg width="13" height="13" viewBox="0 0 13 13"><circle cx="6.5" cy="6.5" r="5.5" fill="var(--other)"/></svg>Outro
+          </div>
+          <span style="color:var(--border2);font-size:14px">|</span>
+          <div class="leg-item"><svg width="13" height="13" viewBox="0 0 13 13"><circle cx="6.5" cy="6.5" r="4" fill="none" stroke="var(--green)" stroke-width="3"/></svg>&lt;30min</div>
+          <div class="leg-item"><svg width="13" height="13" viewBox="0 0 13 13"><circle cx="6.5" cy="6.5" r="4" fill="none" stroke="var(--amber)" stroke-width="3"/></svg>30–80min</div>
+          <div class="leg-item"><svg width="13" height="13" viewBox="0 0 13 13"><circle cx="6.5" cy="6.5" r="4" fill="none" stroke="var(--red)" stroke-width="3"/></svg>&gt;80min</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-panel">
+      <div class="best-card">
+        <div class="best-label">
+          <svg viewBox="0 0 16 16" fill="none"><path d="M8 1l1.8 3.6L14 5.4l-3 2.9.7 4.1L8 10.4l-3.7 1.9.7-4.1-3-2.9 4.2-.8z" fill="var(--green)"/></svg>
+          Melhor opção agora
+        </div>
+        <div class="best-name" id="best-name">—</div>
+        <div class="best-type" id="best-type">—</div>
+        <div class="best-stats">
+          <div class="bstat"><div class="bstat-label">Espera estimada</div><div class="bstat-val" id="best-wait">—</div></div>
+          <div class="bstat"><div class="bstat-label">Na fila agora</div><div class="bstat-val" id="best-queue">—</div></div>
+        </div>
+      </div>
+
+      <div class="ranking-panel">
+        <div class="panel-header">
+          <span id="rank-title">Ranking por espera</span>
+          <button class="sort-btn" id="sort-btn" onclick="toggleSort()">fila ↕</button>
+        </div>
+        <div id="unit-list"></div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Dados de localização via <a href="https://opendatasus.saude.gov.br/dataset/cnes-cadastro-nacional-de-estabelecimentos-de-saude" target="_blank">API CNES</a> — gratuita, sem autenticação, Ministério da Saúde.
+    Tempos de espera são <strong>estimativas simuladas</strong> (não existe API pública federal de fila em tempo real ainda).
+    Em produção, viriam de integração com SISREG ou com os sistemas das próprias unidades.
+    Código IBGE de Campinas: <strong>350950</strong>.
+  </div>
+
+</div>
+
+<script>
+const UNITS = [
+  {codigo_cnes:"2081399",nome_fantasia:"Hospital das Clínicas Unicamp",descricao_tipo_unidade:"HOSPITAL GERAL",descricao_natureza_juridica:"Estadual",tem_atendimento_urgencia:"Sim",vinculo_sus:"Sim",latitude:"-22.8850",longitude:"-47.0660"},
+  {codigo_cnes:"2077760",nome_fantasia:"Hospital Municipal Dr. Mario Gatti",descricao_tipo_unidade:"HOSPITAL GERAL",descricao_natureza_juridica:"Municipal",tem_atendimento_urgencia:"Sim",vinculo_sus:"Sim",latitude:"-22.9100",longitude:"-47.0650"},
+  {codigo_cnes:"2077884",nome_fantasia:"Hospital da Mulher Pinotti",descricao_tipo_unidade:"HOSPITAL ESPECIALIZADO",descricao_natureza_juridica:"Estadual",tem_atendimento_urgencia:"Sim",vinculo_sus:"Sim",latitude:"-22.8960",longitude:"-47.0550"},
+  {codigo_cnes:"3153140",nome_fantasia:"CAISM Unicamp",descricao_tipo_unidade:"HOSPITAL ESPECIALIZADO",descricao_natureza_juridica:"Estadual",tem_atendimento_urgencia:"Sim",vinculo_sus:"Sim",latitude:"-22.8880",longitude:"-47.0680"},
+  {codigo_cnes:"2079087",nome_fantasia:"Hospital Estadual de Sumaré",descricao_tipo_unidade:"HOSPITAL GERAL",descricao_natureza_juridica:"Estadual",tem_atendimento_urgencia:"Sim",vinculo_sus:"Sim",latitude:"-22.8200",longitude:"-47.2600"},
+  {codigo_cnes:"6883841",nome_fantasia:"UPA 24h Anchieta",descricao_tipo_unidade:"UNIDADE DE PRONTO ATENDIMENTO",descricao_natureza_juridica:"Municipal",tem_atendimento_urgencia:"Sim",vinculo_sus:"Sim",latitude:"-22.9500",longitude:"-47.1200"},
+  {codigo_cnes:"6883922",nome_fantasia:"UPA 24h Campo Grande",descricao_tipo_unidade:"UNIDADE DE PRONTO ATENDIMENTO",descricao_natureza_juridica:"Municipal",tem_atendimento_urgencia:"Sim",vinculo_sus:"Sim",latitude:"-22.9350",longitude:"-47.1050"},
+  {codigo_cnes:"6657432",nome_fantasia:"UPA 24h Sousas",descricao_tipo_unidade:"UNIDADE DE PRONTO ATENDIMENTO",descricao_natureza_juridica:"Municipal",tem_atendimento_urgencia:"Sim",vinculo_sus:"Sim",latitude:"-22.8750",longitude:"-46.9800"},
+  {codigo_cnes:"6657521",nome_Fantasia:"UPA 24h Ouro Verde",descricao_tipo_unidade:"UNIDADE DE PRONTO ATENDIMENTO",descricao_natureza_juridica:"Municipal",tem_atendimento_urgencia:"Sim",vinculo_sus:"Sim",latitude:"-22.9800",longitude:"-47.1500"},
+  {codigo_cnes:"2077558",nome_fantasia:"CS Barão Geraldo",descricao_tipo_unidade:"CENTRO DE SAUDE/UNIDADE BASICA",descricao_natureza_juridica:"Municipal",tem_atendimento_urgencia:"Não",vinculo_sus:"Sim",latitude:"-22.8400",longitude:"-47.0680"},
+  {codigo_cnes:"2077590",nome_fantasia:"CS DIC III",descricao_tipo_unidade:"CENTRO DE SAUDE/UNIDADE BASICA",descricao_natureza_juridica:"Municipal",tem_atendimento_urgencia:"Não",vinculo_sus:"Sim",latitude:"-22.9650",longitude:"-47.1380"},
+  {codigo_cnes:"2077639",nome_fantasia:"CS Capivari",descricao_tipo_unidade:"CENTRO DE SAUDE/UNIDADE BASICA",descricao_natureza_juridica:"Municipal",tem_atendimento_urgencia:"Não",vinculo_sus:"Sim",latitude:"-22.9100",longitude:"-47.0300"},
+  {codigo_cnes:"2077647",nome_fantasia:"CS Jardim das Bandeiras",descricao_tipo_unidade:"CENTRO DE SAUDE/UNIDADE BASICA",descricao_natureza_juridica:"Municipal",tem_atendimento_urgencia:"Não",vinculo_sus:"Sim",latitude:"-22.9220",longitude:"-47.0820"},
+  {codigo_cnes:"2770450",nome_fantasia:"CS Ipaussurama",descricao_tipo_unidade:"CENTRO DE SAUDE/UNIDADE BASICA",descricao_natureza_juridica:"Municipal",tem_atendimento_urgencia:"Não",vinculo_sus:"Sim",latitude:"-22.8850",longitude:"-47.0900"},
+  {codigo_cnes:"2077818",nome_fantasia:"Ambulatório Ouro Verde",descricao_tipo_unidade:"POLICLINICA",descricao_natureza_juridica:"Municipal",tem_atendimento_urgencia:"Não",vinculo_sus:"Sim",latitude:"-22.9750",longitude:"-47.1580"},
+];
+
+function getName(u){ return u.nome_fantasia || u.nome || u["nome_fantasia"] || "Sem nome"; }
+function classify(u){
+  const tp=(u.descricao_tipo_unidade||"").toUpperCase();
+  if(/HOSPITAL|PRONTO SOCORRO/.test(tp)) return "hospital";
+  if(/UPA|PRONTO ATENDIMENTO/.test(tp)) return "upa";
+  if(/BASIC|UBS|POSTO|SAUDE DA FAMI|CENTRO DE SA/.test(tp)) return "ubs";
+  return "other";
+}
+const TYPE_COLOR={hospital:"#D85A30",upa:"#BA7517",ubs:"#639922",other:"#7F77DD"};
+const TYPE_LABEL={hospital:"Hospital SUS",upa:"UPA 24h",ubs:"UBS / Posto",other:"Outro serviço"};
+const BASE_WAIT={hospital:110,upa:55,ubs:18,other:28};
+const BASE_Q={hospital:70,upa:32,ubs:9,other:14};
+const BASE_CAP={hospital:80,upa:40,ubs:20,other:25};
+
+function seed(u){ return u.codigo_cnes.split("").reduce((a,c)=>a+c.charCodeAt(0),0); }
+function fakeWait(u){ return Math.max(5, BASE_WAIT[classify(u)]+(seed(u)%40)-20); }
+function fakeQueue(u){ return Math.max(1, BASE_Q[classify(u)]+(seed(u)%28)-14); }
+function waitColor(w){ return w<=30?"var(--green)":w<=80?"var(--amber)":"var(--red)"; }
+function waitClass(w){ return w<=30?"wait-g":w<=80?"wait-a":"wait-r"; }
+function fmt(m){ return m<60?m+"min":Math.floor(m/60)+"h"+(m%60?m%60+"min":""); }
+
+let activeType="all", sortBy="wait", page=0;
+const PER=6;
+
+function getFiltered(){ return UNITS.filter(u=>activeType==="all"||classify(u)===activeType); }
+function getSorted(){
+  const f=getFiltered();
+  return [...f].sort((a,b)=>sortBy==="wait"?fakeWait(a)-fakeWait(b):fakeQueue(a)-fakeQueue(b));
+}
+
+function updateMetrics(){
+  const f=getFiltered(), s=getSorted();
+  document.getElementById("m-total").textContent=f.length;
+  document.getElementById("m-urg").textContent=f.filter(u=>u.tem_atendimento_urgencia==="Sim").length;
+  if(s.length){
+    const best=s[0], worst=s[s.length-1];
+    document.getElementById("m-best").textContent=fmt(fakeWait(best));
+    document.getElementById("m-best-name").textContent=getName(best);
+    document.getElementById("m-worst").textContent=fmt(fakeWait(worst));
+    document.getElementById("m-worst-name").textContent=getName(worst);
+    document.getElementById("best-name").textContent=getName(best);
+    document.getElementById("best-type").textContent=best.descricao_tipo_unidade;
+    document.getElementById("best-wait").textContent=fmt(fakeWait(best));
+    document.getElementById("best-queue").textContent=fakeQueue(best)+" pessoas";
+  }
+}
+
+function drawMap(){
+  const svg=document.getElementById("map");
+  svg.innerHTML="";
+  const f=getFiltered();
+  const W=640,H=400,PAD=36;
+  const lats=f.map(u=>parseFloat(u.latitude)), lngs=f.map(u=>parseFloat(u.longitude));
+  const minLat=Math.min(...lats)-0.03, maxLat=Math.max(...lats)+0.03;
+  const minLng=Math.min(...lngs)-0.03, maxLng=Math.max(...lngs)+0.03;
+  function proj(lat,lng){
+    return [PAD+(lng-minLng)/(maxLng-minLng)*(W-PAD*2), PAD+(maxLat-lat)/(maxLat-minLat)*(H-PAD*2)];
+  }
+
+  for(let i=0;i<=5;i++){
+    const y=PAD+i*(H-PAD*2)/5;
+    const l=document.createElementNS("http://www.w3.org/2000/svg","line");
+    l.setAttribute("x1",PAD);l.setAttribute("x2",W-PAD);l.setAttribute("y1",y);l.setAttribute("y2",y);
+    l.setAttribute("stroke","rgba(0,0,0,0.06)");l.setAttribute("stroke-width","1");
+    svg.appendChild(l);
+  }
+  for(let i=0;i<=6;i++){
+    const x=PAD+i*(W-PAD*2)/6;
+    const l=document.createElementNS("http://www.w3.org/2000/svg","line");
+    l.setAttribute("x1",x);l.setAttribute("x2",x);l.setAttribute("y1",PAD);l.setAttribute("y2",H-PAD);
+    l.setAttribute("stroke","rgba(0,0,0,0.06)");l.setAttribute("stroke-width","1");
+    svg.appendChild(l);
+  }
+
+  f.forEach(u=>{
+    const lat=parseFloat(u.latitude), lng=parseFloat(u.longitude);
+    const [x,y]=proj(lat,lng);
+    const t=classify(u), tc=TYPE_COLOR[t];
+    const wc=waitColor(fakeWait(u)).replace("var(--green)","#1D9E75").replace("var(--amber)","#BA7517").replace("var(--red)","#E24B4A");
+    const r=t==="hospital"?14:t==="upa"?11:9;
+    const g=document.createElementNS("http://www.w3.org/2000/svg","g");
+    g.style.cursor="pointer";
+
+    const sh=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    sh.setAttribute("cx",x);sh.setAttribute("cy",y+2);sh.setAttribute("r",r+2);
+    sh.setAttribute("fill","rgba(0,0,0,0.1)");
+    g.appendChild(sh);
+
+    if(t==="hospital"){
+      const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("cx",x);c.setAttribute("cy",y);c.setAttribute("r",r);
+      c.setAttribute("fill",tc);c.setAttribute("stroke",wc);c.setAttribute("stroke-width","3");
+      g.appendChild(c);
+      [[x-5,y-1.5,10,3],[x-1.5,y-5,3,10]].forEach(([rx,ry,rw,rh])=>{
+        const cr=document.createElementNS("http://www.w3.org/2000/svg","rect");
+        cr.setAttribute("x",rx);cr.setAttribute("y",ry);cr.setAttribute("width",rw);cr.setAttribute("height",rh);
+        cr.setAttribute("fill","#fff");cr.setAttribute("rx","1");g.appendChild(cr);
+      });
+    } else if(t==="upa"){
+      const sq=document.createElementNS("http://www.w3.org/2000/svg","rect");
+      sq.setAttribute("x",x-r);sq.setAttribute("y",y-r);sq.setAttribute("width",r*2);sq.setAttribute("height",r*2);
+      sq.setAttribute("rx","3");sq.setAttribute("fill",tc);sq.setAttribute("stroke",wc);sq.setAttribute("stroke-width","3");
+      g.appendChild(sq);
+      const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
+      txt.setAttribute("x",x);txt.setAttribute("y",y+3.5);
+      txt.setAttribute("text-anchor","middle");txt.setAttribute("font-size","8");
+      txt.setAttribute("font-weight","600");txt.setAttribute("fill","#fff");
+      txt.textContent="24h";g.appendChild(txt);
+    } else if(t==="ubs"){
+      const poly=document.createElementNS("http://www.w3.org/2000/svg","polygon");
+      poly.setAttribute("points",`${x},${y-r} ${x+r*0.9},${y+r*0.65} ${x-r*0.9},${y+r*0.65}`);
+      poly.setAttribute("fill",tc);poly.setAttribute("stroke",wc);poly.setAttribute("stroke-width","2.5");
+      g.appendChild(poly);
+    } else {
+      const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("cx",x);c.setAttribute("cy",y);c.setAttribute("r",r);
+      c.setAttribute("fill",tc);c.setAttribute("stroke",wc);c.setAttribute("stroke-width","2.5");
+      g.appendChild(c);
+    }
+
+    const qr=Math.min(9,Math.max(5,Math.round(fakeQueue(u)/12)));
+    const bub=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    bub.setAttribute("cx",x+r-1);bub.setAttribute("cy",y-r+1);bub.setAttribute("r",qr);
+    bub.setAttribute("fill",wc);g.appendChild(bub);
+    const bnum=document.createElementNS("http://www.w3.org/2000/svg","text");
+    bnum.setAttribute("x",x+r-1);bnum.setAttribute("y",y-r+4.5);
+    bnum.setAttribute("text-anchor","middle");bnum.setAttribute("font-size","7");
+    bnum.setAttribute("font-weight","600");bnum.setAttribute("fill","#fff");
+    bnum.textContent=fakeQueue(u)>99?"99+":fakeQueue(u);
+    g.appendChild(bnum);
+
+    const tip=document.getElementById("tip");
+    const wrap=document.getElementById("mapwrap");
+    g.addEventListener("mouseenter",()=>{
+      document.getElementById("tt-name").textContent=getName(u);
+      document.getElementById("tt-type").textContent=u.descricao_tipo_unidade;
+      document.getElementById("tt-nat").textContent=u.descricao_natureza_juridica;
+      document.getElementById("tt-urg").textContent=u.tem_atendimento_urgencia;
+      document.getElementById("tt-sus").textContent=u.vinculo_sus;
+      document.getElementById("tt-wait").textContent=fmt(fakeWait(u))+" (estimado)";
+      document.getElementById("tt-cnes").textContent=u.codigo_cnes;
+      tip.style.display="block";
+    });
+    g.addEventListener("mousemove",e=>{
+      const rect=wrap.getBoundingClientRect();
+      let lx=e.clientX-rect.left+14, ly=e.clientY-rect.top-10;
+      if(lx+185>rect.width) lx=e.clientX-rect.left-200;
+      if(ly<0) ly=8;
+      tip.style.left=lx+"px";tip.style.top=ly+"px";
+    });
+    g.addEventListener("mouseleave",()=>{ tip.style.display="none"; });
+    g.addEventListener("touchstart",e=>{
+      e.preventDefault();
+      const rect=wrap.getBoundingClientRect();
+      const t0=e.touches[0];
+      document.getElementById("tt-name").textContent=getName(u);
+      document.getElementById("tt-type").textContent=u.descricao_tipo_unidade;
+      document.getElementById("tt-nat").textContent=u.descricao_natureza_juridica;
+      document.getElementById("tt-urg").textContent=u.tem_atendimento_urgencia;
+      document.getElementById("tt-sus").textContent=u.vinculo_sus;
+      document.getElementById("tt-wait").textContent=fmt(fakeWait(u))+" (estimado)";
+      document.getElementById("tt-cnes").textContent=u.codigo_cnes;
+      tip.style.display="block";
+      tip.style.left=Math.min(t0.clientX-rect.left+10,rect.width-195)+"px";
+      tip.style.top=Math.max(8,t0.clientY-rect.top-80)+"px";
+    },{passive:false});
+
+    svg.appendChild(g);
+  });
+
+  const lbl=document.createElementNS("http://www.w3.org/2000/svg","text");
+  lbl.setAttribute("x",PAD+3);lbl.setAttribute("y",H-12);
+  lbl.setAttribute("font-size","9");lbl.setAttribute("fill","rgba(0,0,0,0.3)");
+  lbl.textContent="Campinas/SP · CNES/DataSUS · Ministério da Saúde";
+  svg.appendChild(lbl);
+}
+
+function renderList(){
+  const s=getSorted();
+  const start=page*PER, slice=s.slice(start,start+PER);
+  const totalPages=Math.ceil(s.length/PER);
+  document.getElementById("rank-title").textContent=`${s.length} unidades — por ${sortBy==="wait"?"espera":"fila"}`;
+  document.getElementById("unit-list").innerHTML=slice.map((u,i)=>{
+    const w=fakeWait(u), q=fakeQueue(u), t=classify(u), tc=TYPE_COLOR[t];
+    const occ=Math.min(100,Math.round(q/BASE_CAP[t]*100));
+    const wc=waitColor(w).replace("var(--green)","#1D9E75").replace("var(--amber)","#BA7517").replace("var(--red)","#E24B4A");
+    return `<div class="unit-row">
+      <span class="rank-num">${start+i+1}</span>
+      <div class="unit-icon" style="background:${tc}18;border:1px solid ${tc}44">
+        <svg width="16" height="16" viewBox="0 0 16 16">
+          ${t==="hospital"?`<circle cx="8" cy="8" r="7" fill="${tc}"/><rect x="4" y="7" width="8" height="2" fill="#fff" rx="0.5"/><rect x="7" y="4" width="2" height="8" fill="#fff" rx="0.5"/>`:
+            t==="upa"?`<rect x="1" y="1" width="14" height="14" rx="3" fill="${tc}"/><text x="8" y="10" text-anchor="middle" font-size="5" font-weight="600" fill="#fff">24h</text>`:
+            t==="ubs"?`<polygon points="8,2 14,13.5 2,13.5" fill="${tc}"/>`:
+            `<circle cx="8" cy="8" r="7" fill="${tc}"/>`}
+        </svg>
+      </div>
+      <div class="unit-info">
+        <div class="unit-name">${getName(u)}</div>
+        <div class="unit-sub">${u.descricao_tipo_unidade} · CNES ${u.codigo_cnes}</div>
+        <div class="occ-bar"><div class="occ-fill" style="width:${occ}%;background:${wc}"></div></div>
+      </div>
+      <span class="wait-badge ${waitClass(w)}">${fmt(w)}</span>
+    </div>`;
+  }).join("");
+  document.getElementById("pagination").innerHTML=totalPages>1?`
+    <button class="pg-btn" onclick="goPage(-1)" ${page===0?"disabled":""}>← Ant.</button>
+    <span>${page+1} de ${totalPages}</span>
+    <button class="pg-btn" onclick="goPage(1)" ${page>=totalPages-1?"disabled":""}>Próx. →</button>
+  `:`<span>${s.length} unidades</span>`;
+}
+
+function render(){ updateMetrics(); drawMap(); renderList(); }
+window.goPage=d=>{ const t=Math.ceil(getFiltered().length/PER); page=Math.max(0,Math.min(page+d,t-1)); renderList(); };
+window.toggleSort=()=>{
+  sortBy=sortBy==="wait"?"queue":"wait";
+  document.getElementById("sort-btn").textContent=sortBy==="wait"?"fila ↕":"espera ↕";
+  page=0; render();
+};
+
+document.getElementById("filters").addEventListener("click",e=>{
+  const btn=e.target.closest("[data-t]");
+  if(!btn) return;
+  activeType=btn.dataset.t; page=0;
+  document.querySelectorAll(".fbtn").forEach(b=>b.classList.toggle("on",b.dataset.t===activeType));
+  render();
+});
+document.getElementById("mapwrap").addEventListener("touchstart",e=>{
+  if(!e.target.closest("g")) document.getElementById("tip").style.display="none";
+},{passive:true});
+
+function updateClock(){
+  document.getElementById("clock").textContent=new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+}
+updateClock(); setInterval(updateClock,30000);
+setInterval(render, 10000);
+render();
+</script>
+</body>
+</html>
