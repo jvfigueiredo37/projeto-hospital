@@ -4,710 +4,590 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Monitor Saúde Pública — Campinas/SP</title>
-<meta name="description" content="Monitoramento em tempo real das unidades de saúde pública de Campinas — CNES/DataSUS.">
+<meta name="description" content="Monitoramento das unidades de saúde pública de Campinas em mapa real — CNES/DataSUS.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg-base: #020617;
-  --surface: rgba(30, 41, 59, 0.6);
-  --surface-stroke: rgba(148, 163, 184, 0.1);
-  --surface-hover: rgba(51, 65, 85, 0.7);
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #475569;
-  --accent-green: #4ade80;
-  --accent-green-bg: rgba(74, 222, 128, 0.1);
-  --accent-amber: #fbbf24;
-  --accent-amber-bg: rgba(251, 191, 36, 0.1);
-  --accent-red: #f87171;
-  --accent-red-bg: rgba(248, 113, 113, 0.1);
-  --accent-blue: #38bdf8;
-  --color-hospital: #f43f5e;
-  --color-upa: #f59e0b;
-  --color-ubs: #10b981;
-  --color-other: #8b5cf6;
-  --radius-lg: 16px;
-  --radius-md: 10px;
-  --radius-sm: 6px;
+  --bg: #020617;
+  --surface: rgba(15, 23, 42, 0.85);
+  --surface2: rgba(30, 41, 59, 0.7);
+  --stroke: rgba(148, 163, 184, 0.12);
+  --stroke2: rgba(148, 163, 184, 0.22);
+  --text: #f1f5f9;
+  --text2: #94a3b8;
+  --text3: #475569;
+  --green: #4ade80;
+  --green-bg: rgba(74,222,128,0.12);
+  --amber: #fbbf24;
+  --amber-bg: rgba(251,191,36,0.12);
+  --red: #f87171;
+  --red-bg: rgba(248,113,113,0.12);
+  --blue: #38bdf8;
+  --hospital: #f43f5e;
+  --upa: #f59e0b;
+  --ubs: #10b981;
+  --other: #8b5cf6;
+  --r: 12px;
+  --r-sm: 8px;
 }
+
+html, body { height: 100%; }
 
 body {
   font-family: 'Inter', -apple-system, sans-serif;
-  background: var(--bg-base);
-  color: var(--text-primary);
-  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
 }
 
-/* Grid de fundo sutil */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(148,163,184,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148,163,184,0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none;
-  z-index: 0;
+/* LAYOUT PRINCIPAL — sidebar + mapa */
+.layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
 }
 
-.app { max-width: 1280px; margin: 0 auto; padding: 2rem 1.5rem 4rem; position: relative; z-index: 1; }
+/* SIDEBAR */
+.sidebar {
+  width: 380px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-right: 1px solid var(--stroke);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.sidebar-inner {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148,163,184,0.15) transparent;
+}
+.sidebar-inner::-webkit-scrollbar { width: 4px; }
+.sidebar-inner::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.15); border-radius: 2px; }
 
 /* HEADER */
-.header {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap;
+.s-header {
+  padding: 1.25rem 1.25rem 1rem;
+  border-bottom: 1px solid var(--stroke);
+  flex-shrink: 0;
 }
-.header-titles h1 {
-  font-size: 1.5rem; font-weight: 800; letter-spacing: -0.04em;
-  background: linear-gradient(to right, #ffffff 30%, #64748b 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
+.s-header h1 {
+  font-size: 1rem; font-weight: 800; letter-spacing: -0.03em;
+  background: linear-gradient(to right, #fff 30%, #64748b);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  margin-bottom: 0.2rem;
 }
-.header-titles p { font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem; }
+.s-header p { font-size: 0.7rem; color: var(--text3); }
+.live-row {
+  display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem;
+}
 .live-pill {
-  display: flex; align-items: center; gap: 0.625rem;
-  background: var(--surface); border: 1px solid var(--surface-stroke);
-  padding: 0.5rem 1rem; border-radius: 99px; font-size: 0.8125rem; font-weight: 500;
+  display: flex; align-items: center; gap: 0.5rem;
+  background: var(--surface2); border: 1px solid var(--stroke);
+  padding: 0.3rem 0.75rem; border-radius: 99px;
+  font-size: 0.7rem; font-weight: 600; color: var(--text2);
 }
 .pulse {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--accent-green);
-  box-shadow: 0 0 8px rgba(74,222,128,0.6);
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 8px rgba(74,222,128,0.7);
   animation: pulse 2s infinite;
 }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
+.cnes-chip {
+  font-size: 0.65rem; color: var(--blue);
+  background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.2);
+  padding: 0.2rem 0.6rem; border-radius: 99px;
+}
 
 /* METRICS */
-.metrics-grid {
-  display: grid; grid-template-columns: repeat(4, minmax(0,1fr));
-  gap: 1rem; margin-bottom: 1.75rem;
+.metrics {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 0.625rem; padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--stroke);
 }
-.metric-card {
-  background: var(--surface); border: 1px solid var(--surface-stroke);
-  border-radius: var(--radius-lg); padding: 1.25rem 1.5rem;
-  transition: border-color 0.2s, transform 0.2s;
+.mc {
+  background: var(--surface2); border: 1px solid var(--stroke);
+  border-radius: var(--r-sm); padding: 0.875rem;
 }
-.metric-card:hover { border-color: rgba(148,163,184,0.2); transform: translateY(-2px); }
-.metric-icon-row {
-  display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.875rem;
-}
-.metric-icon {
-  width: 32px; height: 32px; border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
-}
-.metric-label { font-size: 0.6875rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.metric-value { font-size: 2rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
-.metric-sub { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.lucide { width: 16px; height: 16px; stroke-width: 2; }
-
-/* FILTERS */
-.filter-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 0 1.5rem; }
-.fbtn {
-  display: flex; align-items: center; gap: 0.5rem;
-  background: rgba(255,255,255,0.03); border: 1px solid var(--surface-stroke);
-  color: var(--text-secondary); padding: 0.375rem 0.875rem;
-  border-radius: 99px; font-size: 0.8125rem; font-weight: 500;
-  cursor: pointer; transition: all 0.15s; font-family: inherit;
-}
-.fbtn:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
-.fbtn.on { background: var(--accent-blue); color: #01111f; border-color: var(--accent-blue); font-weight: 700; }
-.fbtn.on .fdot { background: #01111f !important; }
-.fdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-
-/* MAIN LAYOUT */
-.main-grid { display: grid; grid-template-columns: 1fr 380px; gap: 1.25rem; align-items: start; }
-
-/* PANEL */
-.panel {
-  background: var(--surface); border: 1px solid var(--surface-stroke);
-  border-radius: var(--radius-lg); overflow: hidden;
-}
-.panel-header {
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  padding: 1rem 1.5rem; border-bottom: 1px solid var(--surface-stroke);
-}
-.panel-title { font-weight: 700; font-size: 0.9375rem; }
-.panel-chip {
-  font-size: 0.6875rem; color: var(--accent-blue);
-  background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.2);
-  padding: 0.2rem 0.625rem; border-radius: 99px;
-}
-
-/* MAP */
-.map-bg { position: relative; background: #010409; }
-.map-bg svg { display: block; width: 100%; height: auto; }
-
-.tooltip {
-  position: absolute; pointer-events: none; display: none; z-index: 50;
-  background: #0f172a; border: 1px solid rgba(148,163,184,0.15);
-  border-radius: var(--radius-md); padding: 0.875rem 1rem;
-  font-size: 0.75rem; min-width: 210px;
-}
-.tt-name { font-weight: 700; font-size: 0.875rem; color: var(--text-primary); margin-bottom: 0.625rem; line-height: 1.3; }
-.tt-row { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.2rem 0; }
-.tt-lbl { color: var(--text-muted); }
-.tt-val { color: var(--text-primary); font-weight: 500; }
-.tt-divider { border-top: 1px solid rgba(255,255,255,0.06); margin: 0.5rem 0; }
-.tt-wait-val { font-weight: 800; font-size: 1rem; }
-
-/* MAP LEGEND */
-.map-legend {
-  display: flex; flex-wrap: wrap; gap: 0.75rem; padding: 0.75rem 1.5rem;
-  border-top: 1px solid var(--surface-stroke);
-}
-.leg { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-muted); }
-.leg-dot { width: 9px; height: 9px; border-radius: 50%; }
-.leg-sep { width: 1px; height: 14px; background: var(--surface-stroke); margin: 0 0.25rem; }
-
-/* SIDE PANEL */
-.side-col { display: flex; flex-direction: column; gap: 1.25rem; }
+.mc-lbl { font-size: 0.625rem; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.4rem; }
+.mc-val { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
+.mc-sub { font-size: 0.625rem; color: var(--text3); margin-top: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* BEST CARD */
 .best-card {
-  border-radius: var(--radius-lg); padding: 1.5rem;
-  background: linear-gradient(135deg, rgba(74,222,128,0.12) 0%, rgba(16,185,129,0.04) 100%);
-  border: 1px solid rgba(74,222,128,0.3);
+  margin: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(74,222,128,0.13), rgba(16,185,129,0.04));
+  border: 1px solid rgba(74,222,128,0.28);
+  border-radius: var(--r); padding: 1rem 1.125rem;
   position: relative; overflow: hidden;
 }
 .best-card::after {
-  content: ''; position: absolute; top: -60px; right: -60px;
-  width: 160px; height: 160px; border-radius: 50%;
-  background: var(--accent-green); filter: blur(80px); opacity: 0.12; pointer-events: none;
+  content:''; position:absolute; top:-50px; right:-50px;
+  width:130px; height:130px; border-radius:50%;
+  background:var(--green); filter:blur(70px); opacity:0.1; pointer-events:none;
 }
-.best-header { display: flex; align-items: center; gap: 0.5rem; color: var(--accent-green); margin-bottom: 1rem; }
-.best-header svg { width: 14px; height: 14px; }
-.best-label { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; }
-.best-name { font-size: 1.125rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; line-height: 1.3; margin-bottom: 0.2rem; }
-.best-type { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 1rem; }
-.best-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-.bstat {
-  background: rgba(0,0,0,0.25); border-radius: var(--radius-md);
-  padding: 0.875rem 1rem; border: 1px solid rgba(255,255,255,0.04);
+.best-hdr { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.625rem; }
+.best-hdr svg { width:12px; height:12px; color:var(--green); }
+.best-lbl { font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--green); }
+.best-name { font-size:0.9375rem; font-weight:700; letter-spacing:-0.02em; margin-bottom:0.15rem; line-height:1.3; }
+.best-type { font-size:0.7rem; color:var(--text2); margin-bottom:0.75rem; }
+.best-stats { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
+.bst { background:rgba(0,0,0,0.3); border-radius:var(--r-sm); padding:0.625rem 0.75rem; border:1px solid rgba(255,255,255,0.04); }
+.bst-lbl { font-size:0.6rem; color:var(--text3); margin-bottom:0.2rem; }
+.bst-val { font-size:1.1rem; font-weight:700; }
+
+/* FILTERS */
+.filter-section { padding: 0.875rem 1.25rem 0.625rem; border-bottom: 1px solid var(--stroke); }
+.filter-lbl { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text3); margin-bottom:0.5rem; }
+.filter-row { display:flex; gap:0.375rem; flex-wrap:wrap; }
+.fbtn {
+  display:flex; align-items:center; gap:0.4rem;
+  background:rgba(255,255,255,0.03); border:1px solid var(--stroke);
+  color:var(--text2); padding:0.3rem 0.75rem;
+  border-radius:99px; font-size:0.75rem; font-weight:500;
+  cursor:pointer; transition:all 0.12s; font-family:inherit;
 }
-.bstat-lbl { font-size: 0.6875rem; color: var(--text-muted); margin-bottom: 0.25rem; }
-.bstat-val { font-size: 1.25rem; font-weight: 700; }
+.fbtn:hover { background:rgba(255,255,255,0.07); color:var(--text); }
+.fbtn.on { background:var(--blue); color:#01111f; border-color:var(--blue); font-weight:700; }
+.fbtn.on .fdot { background:#01111f !important; }
+.fdot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
 
 /* RANKING */
-.sort-row { display: flex; gap: 0.375rem; }
-.sort-btn {
-  font-size: 0.75rem; color: var(--text-muted); font-family: inherit;
-  background: rgba(255,255,255,0.03); border: 1px solid var(--surface-stroke);
-  padding: 0.25rem 0.625rem; border-radius: 99px; cursor: pointer; transition: all 0.15s;
+.rank-section { flex:1; }
+.rank-hdr {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0.75rem 1.25rem 0.375rem;
 }
-.sort-btn:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
-.sort-btn.active { background: rgba(56,189,248,0.12); border-color: rgba(56,189,248,0.3); color: var(--accent-blue); }
+.rank-title { font-size:0.8125rem; font-weight:700; }
+.sort-row { display:flex; gap:0.3rem; }
+.sbtn {
+  font-size:0.7rem; font-family:inherit;
+  background:rgba(255,255,255,0.04); border:1px solid var(--stroke);
+  color:var(--text2); padding:0.2rem 0.625rem; border-radius:99px; cursor:pointer;
+  transition:all 0.12s;
+}
+.sbtn:hover { color:var(--text); background:rgba(255,255,255,0.07); }
+.sbtn.on { background:rgba(56,189,248,0.12); border-color:rgba(56,189,248,0.3); color:var(--blue); }
 
-.rank-item {
-  display: flex; align-items: center; gap: 0.875rem;
-  padding: 0.875rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.03);
-  cursor: pointer; transition: background 0.12s;
+.rank-list { display:flex; flex-direction:column; }
+.ri {
+  display:flex; align-items:center; gap:0.75rem;
+  padding:0.75rem 1.25rem; border-bottom:1px solid rgba(255,255,255,0.03);
+  cursor:pointer; transition:background 0.1s;
 }
-.rank-item:hover { background: rgba(255,255,255,0.025); }
-.rank-item:last-child { border-bottom: none; }
-.rank-num { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); width: 18px; text-align: center; flex-shrink: 0; }
-.rank-icon {
-  width: 38px; height: 38px; border-radius: var(--radius-md); flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-}
-.rank-info { flex: 1; min-width: 0; }
-.rank-name { font-size: 0.8125rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rank-sub { font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.1rem; }
-.occ-bar { height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; margin-top: 0.375rem; overflow: hidden; }
-.occ-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
-.rank-badge {
-  flex-shrink: 0; font-size: 0.8125rem; font-weight: 700;
-  padding: 0.3rem 0.7rem; border-radius: var(--radius-sm);
-}
-.badge-g { background: rgba(74,222,128,0.12); color: #4ade80; }
-.badge-a { background: rgba(251,191,36,0.12); color: #fbbf24; }
-.badge-r { background: rgba(248,113,113,0.12); color: #f87171; }
+.ri:hover { background:rgba(255,255,255,0.025); }
+.ri.active-item { background:rgba(56,189,248,0.07); }
+.ri:last-child { border-bottom:none; }
+.ri-num { font-size:0.7rem; font-weight:700; color:var(--text3); width:16px; text-align:center; flex-shrink:0; }
+.ri-icon { width:36px; height:36px; border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.ri-info { flex:1; min-width:0; }
+.ri-name { font-size:0.8rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ri-sub { font-size:0.65rem; color:var(--text3); margin-top:0.1rem; }
+.occ-bar { height:2px; background:rgba(255,255,255,0.06); border-radius:1px; margin-top:0.35rem; overflow:hidden; }
+.occ-fill { height:100%; border-radius:1px; transition:width 0.5s; }
+.ri-badge { flex-shrink:0; font-size:0.75rem; font-weight:700; padding:0.25rem 0.6rem; border-radius:var(--r-sm); }
+.bg { background:var(--green-bg); color:var(--green); }
+.ba { background:var(--amber-bg); color:var(--amber); }
+.br { background:var(--red-bg); color:var(--red); }
 
 /* PAGINATION */
-.pagination {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0.75rem 1.5rem; border-top: 1px solid var(--surface-stroke);
-  font-size: 0.75rem; color: var(--text-muted);
+.pgn {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0.625rem 1.25rem; border-top:1px solid var(--stroke);
+  font-size:0.7rem; color:var(--text3);
 }
-.pg-btn {
-  font-size: 0.75rem; font-family: inherit;
-  background: rgba(255,255,255,0.04); border: 1px solid var(--surface-stroke);
-  color: var(--text-secondary); padding: 0.3rem 0.75rem; border-radius: var(--radius-sm);
-  cursor: pointer; transition: all 0.12s;
+.pb {
+  font-size:0.7rem; font-family:inherit;
+  background:rgba(255,255,255,0.04); border:1px solid var(--stroke);
+  color:var(--text2); padding:0.25rem 0.625rem; border-radius:var(--r-sm); cursor:pointer;
+  transition:all 0.12s;
 }
-.pg-btn:hover:not(:disabled) { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.pg-btn:disabled { opacity: 0.3; cursor: default; }
+.pb:hover:not(:disabled) { background:rgba(255,255,255,0.08); color:var(--text); }
+.pb:disabled { opacity:0.3; cursor:default; }
 
-/* FOOTER */
-.footer {
-  margin-top: 2.5rem; padding-top: 1.5rem;
-  border-top: 1px solid var(--surface-stroke);
-  font-size: 0.6875rem; color: var(--text-muted); line-height: 1.7; text-align: center;
+/* MAP */
+#map {
+  flex: 1;
+  height: 100vh;
+  z-index: 1;
 }
-.footer a { color: var(--accent-blue); text-decoration: none; }
-.footer a:hover { text-decoration: underline; }
 
-/* RESPONSIVE */
-@media (max-width: 900px) {
-  .main-grid { grid-template-columns: 1fr; }
-  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+/* Leaflet dark overrides */
+.leaflet-tile-pane { filter: brightness(0.5) saturate(0.4) hue-rotate(185deg); }
+.leaflet-control-zoom { display:none; }
+.leaflet-attribution-flag { display:none !important; }
+.leaflet-control-attribution {
+  background: rgba(2,6,23,0.85) !important;
+  color: rgba(148,163,184,0.5) !important;
+  font-size: 9px !important;
+  border-radius: 4px 0 0 0 !important;
 }
-@media (max-width: 500px) {
-  .metrics-grid { grid-template-columns: 1fr 1fr; }
-  .metric-value { font-size: 1.625rem; }
-  .header-titles h1 { font-size: 1.25rem; }
-  .app { padding: 1.25rem 1rem 3rem; }
+.leaflet-control-attribution a { color: rgba(56,189,248,0.6) !important; }
+
+/* Custom popup */
+.custom-popup .leaflet-popup-content-wrapper {
+  background: #0f172a;
+  border: 1px solid rgba(148,163,184,0.15);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+  padding: 0;
+  overflow: hidden;
+}
+.custom-popup .leaflet-popup-tip-container { display:none; }
+.custom-popup .leaflet-popup-content { margin:0; width:240px !important; }
+.popup-inner { padding:1rem; }
+.popup-name { font-size:0.875rem; font-weight:700; color:#f1f5f9; line-height:1.3; margin-bottom:0.5rem; }
+.popup-row { display:flex; justify-content:space-between; align-items:center; padding:0.2rem 0; font-size:0.75rem; }
+.popup-lbl { color:#475569; }
+.popup-val { color:#94a3b8; font-weight:500; }
+.popup-wait { font-size:1rem; font-weight:800; }
+.popup-divider { border-top:1px solid rgba(255,255,255,0.06); margin:0.5rem 0; }
+.popup-footer { background:rgba(0,0,0,0.3); padding:0.5rem 1rem; font-size:0.65rem; color:#475569; }
+
+/* Responsive — mobile: mapa em cima, sidebar embaixo */
+@media (max-width: 768px) {
+  body { overflow: auto; }
+  .layout { flex-direction: column; height: auto; overflow: auto; }
+  .sidebar { width: 100%; height: auto; overflow: visible; border-right: none; border-bottom: 1px solid var(--stroke); }
+  .sidebar-inner { overflow: visible; }
+  #map { height: 55vw; min-height: 280px; flex: none; }
 }
 </style>
 </head>
 <body>
-<div class="app">
+<div class="layout">
 
-  <!-- HEADER -->
-  <header class="header">
-    <div class="header-titles">
-      <h1>Monitor Saúde Pública — Campinas/SP</h1>
-      <p>Rede SUS · Cadastro Nacional de Estabelecimentos de Saúde · IBGE 350950</p>
-    </div>
-    <div class="live-pill">
-      <div class="pulse"></div>
-      <span id="clock">--:--</span>
-      <span style="color:var(--text-muted)">·</span>
-      <span style="text-transform:uppercase;font-size:0.7rem;letter-spacing:0.07em;color:var(--text-muted)">Ao vivo</span>
-    </div>
-  </header>
-
-  <!-- METRICS -->
-  <div class="metrics-grid">
-    <div class="metric-card">
-      <div class="metric-icon-row">
-        <div class="metric-icon" style="color:var(--accent-blue)">
-          <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 6v12m6-6H6"/><rect x="2" y="2" width="20" height="20" rx="3"/></svg>
-        </div>
-        <span class="metric-label">Unidades</span>
-      </div>
-      <div class="metric-value" id="m-total">—</div>
-      <div class="metric-sub">Cadastradas no CNES</div>
-    </div>
-
-    <div class="metric-card">
-      <div class="metric-icon-row">
-        <div class="metric-icon" style="color:var(--accent-red)">
-          <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"/></svg>
-        </div>
-        <span class="metric-label">Urgência 24h</span>
-      </div>
-      <div class="metric-value" id="m-urg" style="color:var(--accent-red)">—</div>
-      <div class="metric-sub">Hospitais e UPAs abertas</div>
-    </div>
-
-    <div class="metric-card">
-      <div class="metric-icon-row">
-        <div class="metric-icon" style="color:var(--accent-green)">
-          <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <span class="metric-label">Menor espera</span>
-      </div>
-      <div class="metric-value" id="m-best" style="color:var(--accent-green)">—</div>
-      <div class="metric-sub" id="m-best-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
-    </div>
-
-    <div class="metric-card">
-      <div class="metric-icon-row">
-        <div class="metric-icon" style="color:var(--accent-amber)">
-          <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
-        </div>
-        <span class="metric-label">Maior espera</span>
-      </div>
-      <div class="metric-value" id="m-worst" style="color:var(--accent-amber)">—</div>
-      <div class="metric-sub" id="m-worst-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
-    </div>
-  </div>
-
-  <!-- MAIN GRID -->
-  <div class="main-grid">
-
-    <!-- LEFT: MAP -->
-    <div>
-      <div class="panel">
-        <div class="panel-header">
-          <div>
-            <div class="panel-title">Mapa de ocupação</div>
-          </div>
-          <span class="panel-chip">CNES / DataSUS</span>
-        </div>
-
-        <div class="filter-bar" id="filters">
-          <button class="fbtn on" data-t="all">Todos</button>
-          <button class="fbtn" data-t="hospital"><span class="fdot" style="background:var(--color-hospital)"></span>Hospital</button>
-          <button class="fbtn" data-t="upa"><span class="fdot" style="background:var(--color-upa)"></span>UPA 24h</button>
-          <button class="fbtn" data-t="ubs"><span class="fdot" style="background:var(--color-ubs)"></span>UBS</button>
-          <button class="fbtn" data-t="other"><span class="fdot" style="background:var(--color-other)"></span>Outros</button>
-        </div>
-
-        <div class="map-bg" id="mapwrap">
-          <svg id="map" viewBox="0 0 640 400" xmlns="http://www.w3.org/2000/svg"></svg>
-          <div class="tooltip" id="tip">
-            <div class="tt-name" id="tt-name"></div>
-            <div class="tt-row"><span class="tt-lbl">Tipo</span><span class="tt-val" id="tt-type"></span></div>
-            <div class="tt-row"><span class="tt-lbl">Natureza</span><span class="tt-val" id="tt-nat"></span></div>
-            <div class="tt-row"><span class="tt-lbl">Urgência</span><span class="tt-val" id="tt-urg"></span></div>
-            <div class="tt-row"><span class="tt-lbl">CNES</span><span class="tt-val" style="color:var(--accent-blue)" id="tt-cnes"></span></div>
-            <div class="tt-divider"></div>
-            <div class="tt-row">
-              <span class="tt-lbl">Espera estimada</span>
-              <span class="tt-wait-val" id="tt-wait"></span>
-            </div>
-            <div class="tt-row">
-              <span class="tt-lbl">Na fila</span>
-              <span class="tt-val" id="tt-queue"></span>
-            </div>
-          </div>
-        </div>
-
-        <div class="map-legend">
-          <div class="leg"><span class="leg-dot" style="background:var(--color-hospital)"></span>Hospital</div>
-          <div class="leg"><span class="leg-dot" style="background:var(--color-upa);border-radius:2px"></span>UPA 24h</div>
-          <div class="leg"><span class="leg-dot" style="background:var(--color-ubs);clip-path:polygon(50% 0%,100% 100%,0% 100%)"></span>UBS</div>
-          <div class="leg"><span class="leg-dot" style="background:var(--color-other)"></span>Outro</div>
-          <div class="leg-sep"></div>
-          <div class="leg"><span class="leg-dot" style="background:#4ade80"></span>&lt;30min</div>
-          <div class="leg"><span class="leg-dot" style="background:#fbbf24"></span>30–80min</div>
-          <div class="leg"><span class="leg-dot" style="background:#f87171"></span>&gt;80min</div>
-        </div>
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="s-header">
+      <h1>Monitor Saúde — Campinas/SP</h1>
+      <p>Rede SUS · Ministério da Saúde · IBGE 350950</p>
+      <div class="live-row">
+        <div class="live-pill"><div class="pulse"></div><span id="clock">--:--</span>&nbsp;· ao vivo</div>
+        <span class="cnes-chip">CNES / DataSUS</span>
       </div>
     </div>
 
-    <!-- RIGHT: SIDE -->
-    <div class="side-col">
+    <div class="sidebar-inner">
 
-      <!-- BEST -->
+      <div class="metrics">
+        <div class="mc">
+          <div class="mc-lbl">Unidades</div>
+          <div class="mc-val" id="m-total">—</div>
+          <div class="mc-sub">cadastradas CNES</div>
+        </div>
+        <div class="mc">
+          <div class="mc-lbl">Urgência 24h</div>
+          <div class="mc-val" id="m-urg" style="color:var(--red)">—</div>
+          <div class="mc-sub">hospitais e UPAs</div>
+        </div>
+        <div class="mc">
+          <div class="mc-lbl">Menor espera</div>
+          <div class="mc-val" id="m-best" style="color:var(--green)">—</div>
+          <div class="mc-sub" id="m-best-n">—</div>
+        </div>
+        <div class="mc">
+          <div class="mc-lbl">Maior espera</div>
+          <div class="mc-val" id="m-worst" style="color:var(--amber)">—</div>
+          <div class="mc-sub" id="m-worst-n">—</div>
+        </div>
+      </div>
+
       <div class="best-card">
-        <div class="best-header">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          <span class="best-label">Melhor opção agora</span>
+        <div class="best-hdr">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span class="best-lbl">Melhor opção agora</span>
         </div>
-        <div class="best-name" id="best-name">—</div>
-        <div class="best-type" id="best-type">—</div>
+        <div class="best-name" id="b-name">—</div>
+        <div class="best-type" id="b-type">—</div>
         <div class="best-stats">
-          <div class="bstat">
-            <div class="bstat-lbl">Espera estimada</div>
-            <div class="bstat-val" id="best-wait" style="color:var(--accent-green)">—</div>
-          </div>
-          <div class="bstat">
-            <div class="bstat-lbl">Na fila agora</div>
-            <div class="bstat-val" id="best-queue">—</div>
-          </div>
+          <div class="bst"><div class="bst-lbl">Espera estimada</div><div class="bst-val" id="b-wait" style="color:var(--green)">—</div></div>
+          <div class="bst"><div class="bst-lbl">Na fila agora</div><div class="bst-val" id="b-queue">—</div></div>
         </div>
       </div>
 
-      <!-- RANKING -->
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title" id="rank-title">Ranking por espera</span>
+      <div class="filter-section">
+        <div class="filter-lbl">Filtrar por tipo</div>
+        <div class="filter-row" id="filters">
+          <button class="fbtn on" data-t="all">Todos</button>
+          <button class="fbtn" data-t="hospital"><span class="fdot" style="background:var(--hospital)"></span>Hospital</button>
+          <button class="fbtn" data-t="upa"><span class="fdot" style="background:var(--upa)"></span>UPA 24h</button>
+          <button class="fbtn" data-t="ubs"><span class="fdot" style="background:var(--ubs)"></span>UBS</button>
+        </div>
+      </div>
+
+      <div class="rank-section">
+        <div class="rank-hdr">
+          <span class="rank-title" id="rank-title">Ranking</span>
           <div class="sort-row">
-            <button class="sort-btn active" id="btn-wait" onclick="setSort('wait')">Espera</button>
-            <button class="sort-btn" id="btn-queue" onclick="setSort('queue')">Fila</button>
+            <button class="sbtn on" id="sw" onclick="setSort('wait')">Espera</button>
+            <button class="sbtn" id="sq" onclick="setSort('queue')">Fila</button>
           </div>
         </div>
-        <div id="unit-list"></div>
-        <div class="pagination" id="pagination"></div>
+        <div class="rank-list" id="unit-list"></div>
+        <div class="pgn" id="pgn"></div>
       </div>
 
     </div>
-  </div>
+  </aside>
 
-  <footer class="footer">
-    Dados de localização via <a href="https://opendatasus.saude.gov.br/dataset/cnes-cadastro-nacional-de-estabelecimentos-de-saude" target="_blank">API CNES/DataSUS</a> — gratuita, sem autenticação, Ministério da Saúde.<br>
-    <strong style="color:var(--accent-amber)">Atenção:</strong> Tempos de espera e filas são <strong>estimativas simuladas</strong> para fins de demonstração. Em produção, viriam de integração com SISREG ou sistemas das unidades.
-  </footer>
+  <!-- MAPA REAL -->
+  <div id="map"></div>
+
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const UNITS = [
-  {c:"2081399",n:"Hospital das Clínicas Unicamp",t:"HOSPITAL GERAL",nat:"Estadual",lat:-22.8850,lng:-47.0660,u:"Sim"},
-  {c:"2077760",n:"Hospital Municipal Mario Gatti",t:"HOSPITAL GERAL",nat:"Municipal",lat:-22.9100,lng:-47.0650,u:"Sim"},
-  {c:"2077884",n:"Hospital da Mulher Pinotti",t:"HOSPITAL ESPECIALIZADO",nat:"Estadual",lat:-22.8960,lng:-47.0550,u:"Sim"},
-  {c:"3153140",n:"CAISM Unicamp",t:"HOSPITAL ESPECIALIZADO",nat:"Estadual",lat:-22.8880,lng:-47.0680,u:"Sim"},
-  {c:"2079087",n:"Hospital Estadual de Sumaré",t:"HOSPITAL GERAL",nat:"Estadual",lat:-22.8200,lng:-47.2600,u:"Sim"},
-  {c:"6883841",n:"UPA 24h Anchieta",t:"UNIDADE DE PRONTO ATENDIMENTO",nat:"Municipal",lat:-22.9500,lng:-47.1200,u:"Sim"},
-  {c:"6883922",n:"UPA 24h Campo Grande",t:"UNIDADE DE PRONTO ATENDIMENTO",nat:"Municipal",lat:-22.9350,lng:-47.1050,u:"Sim"},
-  {c:"6657432",n:"UPA 24h Sousas",t:"UNIDADE DE PRONTO ATENDIMENTO",nat:"Municipal",lat:-22.8750,lng:-46.9800,u:"Sim"},
-  {c:"6657521",n:"UPA 24h Ouro Verde",t:"UNIDADE DE PRONTO ATENDIMENTO",nat:"Municipal",lat:-22.9800,lng:-47.1500,u:"Sim"},
-  {c:"2077558",n:"CS Barão Geraldo",t:"CENTRO DE SAUDE/UBS",nat:"Municipal",lat:-22.8400,lng:-47.0680,u:"Não"},
-  {c:"2077590",n:"CS DIC III",t:"CENTRO DE SAUDE/UBS",nat:"Municipal",lat:-22.9650,lng:-47.1380,u:"Não"},
-  {c:"2077647",n:"CS Jardim das Bandeiras",t:"CENTRO DE SAUDE/UBS",nat:"Municipal",lat:-22.9220,lng:-47.0820,u:"Não"},
-  {c:"2770450",n:"CS Ipaussurama",t:"CENTRO DE SAUDE/UBS",nat:"Municipal",lat:-22.8850,lng:-47.0900,u:"Não"},
-  {c:"2077639",n:"CS Capivari",t:"CENTRO DE SAUDE/UBS",nat:"Municipal",lat:-22.9100,lng:-47.0300,u:"Não"},
-  {c:"2077818",n:"Ambulatório Ouro Verde",t:"POLICLINICA",nat:"Municipal",lat:-22.9750,lng:-47.1580,u:"Não"},
+  {c:"2081399",n:"Hospital das Clínicas Unicamp",      t:"HOSPITAL GERAL",                    nat:"Estadual", lat:-22.8850,lng:-47.0660,u:"Sim"},
+  {c:"2077760",n:"Hospital Municipal Mario Gatti",      t:"HOSPITAL GERAL",                    nat:"Municipal",lat:-22.9100,lng:-47.0650,u:"Sim"},
+  {c:"2077884",n:"Hospital da Mulher Pinotti",          t:"HOSPITAL ESPECIALIZADO",             nat:"Estadual", lat:-22.8960,lng:-47.0550,u:"Sim"},
+  {c:"3153140",n:"CAISM Unicamp",                       t:"HOSPITAL ESPECIALIZADO",             nat:"Estadual", lat:-22.8880,lng:-47.0680,u:"Sim"},
+  {c:"2079087",n:"Hospital Estadual de Sumaré",         t:"HOSPITAL GERAL",                    nat:"Estadual", lat:-22.8200,lng:-47.2600,u:"Sim"},
+  {c:"6883841",n:"UPA 24h Anchieta",                    t:"UNIDADE DE PRONTO ATENDIMENTO",      nat:"Municipal",lat:-22.9500,lng:-47.1200,u:"Sim"},
+  {c:"6883922",n:"UPA 24h Campo Grande",                t:"UNIDADE DE PRONTO ATENDIMENTO",      nat:"Municipal",lat:-22.9350,lng:-47.1050,u:"Sim"},
+  {c:"6657432",n:"UPA 24h Sousas",                      t:"UNIDADE DE PRONTO ATENDIMENTO",      nat:"Municipal",lat:-22.8750,lng:-46.9800,u:"Sim"},
+  {c:"6657521",n:"UPA 24h Ouro Verde",                  t:"UNIDADE DE PRONTO ATENDIMENTO",      nat:"Municipal",lat:-22.9800,lng:-47.1500,u:"Sim"},
+  {c:"2077558",n:"CS Barão Geraldo",                    t:"CENTRO DE SAUDE / UBS",              nat:"Municipal",lat:-22.8400,lng:-47.0680,u:"Não"},
+  {c:"2077590",n:"CS DIC III",                          t:"CENTRO DE SAUDE / UBS",              nat:"Municipal",lat:-22.9650,lng:-47.1380,u:"Não"},
+  {c:"2077647",n:"CS Jardim das Bandeiras",             t:"CENTRO DE SAUDE / UBS",              nat:"Municipal",lat:-22.9220,lng:-47.0820,u:"Não"},
+  {c:"2770450",n:"CS Ipaussurama",                      t:"CENTRO DE SAUDE / UBS",              nat:"Municipal",lat:-22.8850,lng:-47.0900,u:"Não"},
+  {c:"2077639",n:"CS Capivari",                         t:"CENTRO DE SAUDE / UBS",              nat:"Municipal",lat:-22.9100,lng:-47.0300,u:"Não"},
+  {c:"2077818",n:"Ambulatório Ouro Verde",              t:"POLICLINICA",                        nat:"Municipal",lat:-22.9750,lng:-47.1580,u:"Não"},
 ];
 
-const TYPE_CFG = {
-  hospital: {color:"#f43f5e", label:"Hospital SUS",  wait:110, cap:80,  qBase:65},
-  upa:      {color:"#f59e0b", label:"UPA 24h",        wait:55,  cap:40,  qBase:28},
-  ubs:      {color:"#10b981", label:"UBS / Posto",    wait:18,  cap:20,  qBase:8},
-  other:    {color:"#8b5cf6", label:"Outro serviço",  wait:28,  cap:25,  qBase:12},
+const CFG = {
+  hospital:{ color:"#f43f5e", label:"Hospital SUS",  wait:110, cap:80,  qb:65 },
+  upa:     { color:"#f59e0b", label:"UPA 24h",        wait:55,  cap:40,  qb:28 },
+  ubs:     { color:"#10b981", label:"UBS / Posto",    wait:18,  cap:20,  qb:8  },
+  other:   { color:"#8b5cf6", label:"Outro serviço",  wait:28,  cap:25,  qb:12 },
 };
 
 function classify(u){
   const t=u.t.toUpperCase();
   if(/HOSPITAL/.test(t)) return "hospital";
   if(/UPA|PRONTO/.test(t)) return "upa";
-  if(/BASIC|UBS|SAUDE|CENTRO/.test(t)) return "ubs";
+  if(/BASIC|UBS|SAUDE|CENTRO|POSTO/.test(t)) return "ubs";
   return "other";
 }
-function hashNum(s){ return Math.abs(s.split("").reduce((a,c)=>(((a<<5)-a)+c.charCodeAt(0))|0,0)); }
-function fakeWait(u){ const h=hashNum(u.c), cfg=TYPE_CFG[classify(u)]; return Math.max(5, cfg.wait + (h%36) - 18); }
-function fakeQueue(u){ const h=hashNum(u.c), cfg=TYPE_CFG[classify(u)]; return Math.max(1, cfg.qBase + (h%22) - 11); }
+function hashN(s){ return Math.abs(s.split("").reduce((a,c)=>(((a<<5)-a)+c.charCodeAt(0))|0,0)); }
+function fakeWait(u){ const h=hashN(u.c),c=CFG[classify(u)]; return Math.max(5,c.wait+(h%36)-18); }
+function fakeQ(u){    const h=hashN(u.c),c=CFG[classify(u)]; return Math.max(1,c.qb+(h%22)-11); }
 function fmt(m){ return m<60?m+"min":Math.floor(m/60)+"h"+(m%60?m%60+"min":""); }
-function waitColor(w){ return w<=30?"#4ade80":w<=80?"#fbbf24":"#f87171"; }
-function badgeClass(w){ return w<=30?"badge-g":w<=80?"badge-a":"badge-r"; }
+function wColor(w){ return w<=30?"#4ade80":w<=80?"#fbbf24":"#f87171"; }
+function wClass(w){ return w<=30?"bg":w<=80?"ba":"br"; }
 
 let activeType="all", sortBy="wait", page=0;
-const PER=5;
+const PER=6;
+let leafletMarkers=[], mapInstance=null, activeMarkerUnit=null;
 
-function getFiltered(){ return UNITS.filter(u=>activeType==="all"||classify(u)===activeType); }
-function getSorted(){
-  return [...getFiltered()].sort((a,b)=>sortBy==="wait"?fakeWait(a)-fakeWait(b):fakeQueue(a)-fakeQueue(b));
+// ── MAP INIT ──
+function initMap(){
+  mapInstance = L.map("map", {
+    center: [-22.9099, -47.0626],
+    zoom: 12,
+    zoomControl: false,
+    attributionControl: true,
+  });
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  }).addTo(mapInstance);
+
+  L.control.zoom({ position:"bottomright" }).addTo(mapInstance);
 }
 
+// ── CUSTOM MARKER ──
+function makeIcon(u){
+  const tp=classify(u), c=CFG[tp].color;
+  const w=fakeWait(u), wc=wColor(w);
+  const q=fakeQ(u);
+  const size = tp==="hospital"?38:tp==="upa"?34:28;
+
+  let shape="";
+  if(tp==="hospital"){
+    shape=`<circle cx="19" cy="19" r="13" fill="${c}" stroke="${wc}" stroke-width="2.5"/>
+      <rect x="14" y="17.5" width="10" height="3" rx="1" fill="rgba(255,255,255,0.9)"/>
+      <rect x="17.5" y="14" width="3" height="10" rx="1" fill="rgba(255,255,255,0.9)"/>`;
+  } else if(tp==="upa"){
+    shape=`<rect x="6" y="6" width="26" height="26" rx="5" fill="${c}" stroke="${wc}" stroke-width="2.5"/>
+      <text x="19" y="23" text-anchor="middle" font-size="9" font-weight="800" fill="rgba(255,255,255,0.95)" font-family="Inter,sans-serif">24h</text>`;
+  } else if(tp==="ubs"){
+    shape=`<polygon points="19,5 31,29 7,29" fill="${c}" stroke="${wc}" stroke-width="2"/>`;
+  } else {
+    shape=`<circle cx="19" cy="19" r="11" fill="${c}" stroke="${wc}" stroke-width="2"/>`;
+  }
+
+  // glow ring + queue bubble
+  const svg=`<svg width="38" height="38" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="19" cy="19" r="17" fill="${wc}" opacity="0.18"/>
+    ${shape}
+    <circle cx="28" cy="10" r="8" fill="${wc}"/>
+    <text x="28" y="14" text-anchor="middle" font-size="7" font-weight="800" fill="#010409" font-family="Inter,sans-serif">${q>99?"99+":q}</text>
+  </svg>`;
+
+  return L.divIcon({
+    html: svg,
+    iconSize:[38,38],
+    iconAnchor:[19,19],
+    popupAnchor:[0,-22],
+    className:"",
+  });
+}
+
+function popupHTML(u){
+  const w=fakeWait(u), q=fakeQ(u), tp=classify(u), c=CFG[tp];
+  const wc=wColor(w);
+  return `<div class="popup-inner">
+    <div class="popup-name">${u.n}</div>
+    <div class="popup-row"><span class="popup-lbl">Tipo</span><span class="popup-val">${u.t}</span></div>
+    <div class="popup-row"><span class="popup-lbl">Natureza</span><span class="popup-val">${u.nat}</span></div>
+    <div class="popup-row"><span class="popup-lbl">Urgência 24h</span><span class="popup-val">${u.u}</span></div>
+    <div class="popup-row"><span class="popup-lbl">CNES</span><span class="popup-val" style="color:#38bdf8">${u.c}</span></div>
+    <div class="popup-divider"></div>
+    <div class="popup-row">
+      <span class="popup-lbl">Espera estimada</span>
+      <span class="popup-wait" style="color:${wc}">${fmt(w)}</span>
+    </div>
+    <div class="popup-row">
+      <span class="popup-lbl">Na fila agora</span>
+      <span class="popup-val">${q} pessoas</span>
+    </div>
+  </div>
+  <div class="popup-footer">Dados simulados · CNES/DataSUS</div>`;
+}
+
+function drawMarkers(){
+  leafletMarkers.forEach(m=>m.remove());
+  leafletMarkers=[];
+  const f=UNITS.filter(u=>activeType==="all"||classify(u)===activeType);
+  f.forEach(u=>{
+    const m=L.marker([u.lat,u.lng],{icon:makeIcon(u)});
+    m.bindPopup(popupHTML(u),{className:"custom-popup",maxWidth:260,minWidth:240});
+    m.on("click",()=>{
+      document.querySelectorAll(".ri").forEach(el=>el.classList.remove("active-item"));
+      const el=document.querySelector(`[data-cnes="${u.c}"]`);
+      if(el){ el.classList.add("active-item"); el.scrollIntoView({behavior:"smooth",block:"nearest"}); }
+    });
+    m.addTo(mapInstance);
+    leafletMarkers.push(m);
+  });
+}
+
+// ── SIDEBAR RENDER ──
 function updateMetrics(){
-  const f=getFiltered(), s=getSorted();
+  const f=UNITS.filter(u=>activeType==="all"||classify(u)===activeType);
+  const s=[...f].sort((a,b)=>fakeWait(a)-fakeWait(b));
   document.getElementById("m-total").textContent=f.length;
   document.getElementById("m-urg").textContent=f.filter(u=>u.u==="Sim").length;
   if(!s.length) return;
-  const best=s[0], worst=s[s.length-1];
+  const best=s[0],worst=s[s.length-1];
   document.getElementById("m-best").textContent=fmt(fakeWait(best));
-  document.getElementById("m-best-name").textContent=best.n;
+  document.getElementById("m-best-n").textContent=best.n;
   document.getElementById("m-worst").textContent=fmt(fakeWait(worst));
-  document.getElementById("m-worst-name").textContent=worst.n;
-  document.getElementById("best-name").textContent=best.n;
-  document.getElementById("best-type").textContent=best.t;
-  document.getElementById("best-wait").textContent=fmt(fakeWait(best));
-  document.getElementById("best-queue").textContent=fakeQueue(best)+" pessoas";
-}
-
-function drawMap(){
-  const svg=document.getElementById("map");
-  svg.innerHTML="";
-  const f=getFiltered();
-  if(!f.length) return;
-  const W=640,H=400,PAD=40;
-  const lats=f.map(u=>u.lat), lngs=f.map(u=>u.lng);
-  const minLat=Math.min(...lats)-0.025, maxLat=Math.max(...lats)+0.025;
-  const minLng=Math.min(...lngs)-0.025, maxLng=Math.max(...lngs)+0.025;
-  function proj(lat,lng){
-    return [PAD+(lng-minLng)/(maxLng-minLng)*(W-PAD*2), PAD+(maxLat-lat)/(maxLat-minLat)*(H-PAD*2)];
-  }
-
-  // grid
-  for(let i=0;i<=5;i++){
-    const y=PAD+i*(H-PAD*2)/5;
-    const l=document.createElementNS("http://www.w3.org/2000/svg","line");
-    l.setAttribute("x1",PAD);l.setAttribute("x2",W-PAD);l.setAttribute("y1",y);l.setAttribute("y2",y);
-    l.setAttribute("stroke","rgba(148,163,184,0.05)");l.setAttribute("stroke-width","1");
-    svg.appendChild(l);
-  }
-  for(let i=0;i<=6;i++){
-    const x=PAD+i*(W-PAD*2)/6;
-    const l=document.createElementNS("http://www.w3.org/2000/svg","line");
-    l.setAttribute("x1",x);l.setAttribute("x2",x);l.setAttribute("y1",PAD);l.setAttribute("y2",H-PAD);
-    l.setAttribute("stroke","rgba(148,163,184,0.05)");l.setAttribute("stroke-width","1");
-    svg.appendChild(l);
-  }
-
-  f.forEach(u=>{
-    const [x,y]=proj(u.lat,u.lng);
-    const tp=classify(u), tc=TYPE_CFG[tp].color;
-    const w=fakeWait(u), wc=waitColor(w);
-    const r=tp==="hospital"?14:tp==="upa"?11:9;
-    const g=document.createElementNS("http://www.w3.org/2000/svg","g");
-    g.style.cursor="pointer";
-
-    // glow halo
-    const halo=document.createElementNS("http://www.w3.org/2000/svg","circle");
-    halo.setAttribute("cx",x);halo.setAttribute("cy",y);halo.setAttribute("r",r+6);
-    halo.setAttribute("fill",wc);halo.setAttribute("opacity","0.15");
-    g.appendChild(halo);
-
-    // shape
-    if(tp==="hospital"){
-      const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
-      c.setAttribute("cx",x);c.setAttribute("cy",y);c.setAttribute("r",r);
-      c.setAttribute("fill",tc);c.setAttribute("stroke",wc);c.setAttribute("stroke-width","2.5");
-      g.appendChild(c);
-      // cruz
-      [[x-5,y-1.5,10,3],[x-1.5,y-5,3,10]].forEach(([rx,ry,rw,rh])=>{
-        const cr=document.createElementNS("http://www.w3.org/2000/svg","rect");
-        cr.setAttribute("x",rx);cr.setAttribute("y",ry);cr.setAttribute("width",rw);cr.setAttribute("height",rh);
-        cr.setAttribute("fill","rgba(255,255,255,0.9)");cr.setAttribute("rx","1");
-        g.appendChild(cr);
-      });
-    } else if(tp==="upa"){
-      const sq=document.createElementNS("http://www.w3.org/2000/svg","rect");
-      sq.setAttribute("x",x-r);sq.setAttribute("y",y-r);sq.setAttribute("width",r*2);sq.setAttribute("height",r*2);
-      sq.setAttribute("rx","3");sq.setAttribute("fill",tc);sq.setAttribute("stroke",wc);sq.setAttribute("stroke-width","2.5");
-      g.appendChild(sq);
-      const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
-      txt.setAttribute("x",x);txt.setAttribute("y",y+3.5);
-      txt.setAttribute("text-anchor","middle");txt.setAttribute("font-size","7.5");
-      txt.setAttribute("font-weight","700");txt.setAttribute("fill","rgba(255,255,255,0.9)");
-      txt.setAttribute("font-family","Inter, sans-serif");
-      txt.textContent="24h";g.appendChild(txt);
-    } else if(tp==="ubs"){
-      const tri=document.createElementNS("http://www.w3.org/2000/svg","polygon");
-      tri.setAttribute("points",`${x},${y-r} ${x+r*0.9},${y+r*0.65} ${x-r*0.9},${y+r*0.65}`);
-      tri.setAttribute("fill",tc);tri.setAttribute("stroke",wc);tri.setAttribute("stroke-width","2");
-      g.appendChild(tri);
-    } else {
-      const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
-      c.setAttribute("cx",x);c.setAttribute("cy",y);c.setAttribute("r",r);
-      c.setAttribute("fill",tc);c.setAttribute("stroke",wc);c.setAttribute("stroke-width","2");
-      g.appendChild(c);
-    }
-
-    // queue bubble
-    const qVal=fakeQueue(u);
-    const qr=Math.min(9,Math.max(5,Math.round(qVal/10)));
-    const bub=document.createElementNS("http://www.w3.org/2000/svg","circle");
-    bub.setAttribute("cx",x+r);bub.setAttribute("cy",y-r);bub.setAttribute("r",qr);
-    bub.setAttribute("fill",wc);
-    g.appendChild(bub);
-    const bnum=document.createElementNS("http://www.w3.org/2000/svg","text");
-    bnum.setAttribute("x",x+r);bnum.setAttribute("y",y-r+3.5);
-    bnum.setAttribute("text-anchor","middle");bnum.setAttribute("font-size","6.5");
-    bnum.setAttribute("font-weight","700");bnum.setAttribute("fill","#010409");
-    bnum.setAttribute("font-family","Inter, sans-serif");
-    bnum.textContent=qVal>99?"99+":qVal;
-    g.appendChild(bnum);
-
-    // tooltip
-    const tip=document.getElementById("tip");
-    const wrap=document.getElementById("mapwrap");
-    g.addEventListener("mouseenter",()=>{
-      document.getElementById("tt-name").textContent=u.n;
-      document.getElementById("tt-type").textContent=u.t;
-      document.getElementById("tt-nat").textContent=u.nat;
-      document.getElementById("tt-urg").textContent=u.u;
-      document.getElementById("tt-cnes").textContent=u.c;
-      const el=document.getElementById("tt-wait");
-      el.textContent=fmt(w)+" estimado";
-      el.style.color=wc;
-      document.getElementById("tt-queue").textContent=qVal+" pessoas";
-      tip.style.display="block";
-    });
-    g.addEventListener("mousemove",e=>{
-      const rect=wrap.getBoundingClientRect();
-      let lx=e.clientX-rect.left+16, ly=e.clientY-rect.top-10;
-      if(lx+225>rect.width) lx=e.clientX-rect.left-230;
-      if(ly<0) ly=8;
-      tip.style.left=lx+"px"; tip.style.top=ly+"px";
-    });
-    g.addEventListener("mouseleave",()=>{ tip.style.display="none"; });
-    g.addEventListener("touchstart",e=>{
-      e.preventDefault();
-      const rect=wrap.getBoundingClientRect();
-      const t0=e.touches[0];
-      document.getElementById("tt-name").textContent=u.n;
-      document.getElementById("tt-type").textContent=u.t;
-      document.getElementById("tt-nat").textContent=u.nat;
-      document.getElementById("tt-urg").textContent=u.u;
-      document.getElementById("tt-cnes").textContent=u.c;
-      const el=document.getElementById("tt-wait");
-      el.textContent=fmt(w)+" estimado"; el.style.color=wc;
-      document.getElementById("tt-queue").textContent=qVal+" pessoas";
-      tip.style.display="block";
-      tip.style.left=Math.min(t0.clientX-rect.left+10,rect.width-230)+"px";
-      tip.style.top=Math.max(8,t0.clientY-rect.top-90)+"px";
-    },{passive:false});
-
-    svg.appendChild(g);
-  });
-
-  // label
-  const lbl=document.createElementNS("http://www.w3.org/2000/svg","text");
-  lbl.setAttribute("x",PAD+4);lbl.setAttribute("y",H-12);
-  lbl.setAttribute("font-size","8.5");lbl.setAttribute("fill","rgba(148,163,184,0.3)");
-  lbl.setAttribute("font-family","Inter, sans-serif");
-  lbl.textContent="Campinas/SP · CNES/DataSUS · Ministério da Saúde";
-  svg.appendChild(lbl);
+  document.getElementById("m-worst-n").textContent=worst.n;
+  document.getElementById("b-name").textContent=best.n;
+  document.getElementById("b-type").textContent=best.t;
+  document.getElementById("b-wait").textContent=fmt(fakeWait(best));
+  document.getElementById("b-queue").textContent=fakeQ(best)+" pessoas";
 }
 
 function renderList(){
-  const s=getSorted();
+  const f=UNITS.filter(u=>activeType==="all"||classify(u)===activeType);
+  const s=[...f].sort((a,b)=>sortBy==="wait"?fakeWait(a)-fakeWait(b):fakeQ(a)-fakeQ(b));
   const start=page*PER, slice=s.slice(start,start+PER);
   const totalPages=Math.ceil(s.length/PER);
+
   document.getElementById("rank-title").textContent=`${s.length} unidades — por ${sortBy==="wait"?"espera":"fila"}`;
 
   document.getElementById("unit-list").innerHTML=slice.map((u,i)=>{
-    const tp=classify(u), cfg=TYPE_CFG[tp];
-    const w=fakeWait(u), q=fakeQueue(u), wc=waitColor(w);
-    const occ=Math.min(100,Math.round(q/cfg.cap*100));
-    return `<div class="rank-item">
-      <span class="rank-num">${start+i+1}</span>
-      <div class="rank-icon" style="background:${cfg.color}18;border:1px solid ${cfg.color}30">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          ${tp==="hospital"
-            ?`<circle cx="8" cy="8" r="7" fill="${cfg.color}"/><rect x="4" y="7" width="8" height="2" fill="rgba(255,255,255,0.9)" rx="0.5"/><rect x="7" y="4" width="2" height="8" fill="rgba(255,255,255,0.9)" rx="0.5"/>`
-            :tp==="upa"
-            ?`<rect x="1" y="1" width="14" height="14" rx="3" fill="${cfg.color}"/><text x="8" y="10.5" text-anchor="middle" font-size="5.5" font-weight="700" fill="rgba(255,255,255,0.9)" font-family="Inter,sans-serif">24h</text>`
-            :tp==="ubs"
-            ?`<polygon points="8,1.5 14.5,13.5 1.5,13.5" fill="${cfg.color}"/>`
-            :`<circle cx="8" cy="8" r="7" fill="${cfg.color}"/>`}
-        </svg>
+    const tp=classify(u), c=CFG[tp];
+    const w=fakeWait(u), q=fakeQ(u), wc=wColor(w);
+    const occ=Math.min(100,Math.round(q/c.cap*100));
+    const iconSvg=tp==="hospital"
+      ?`<circle cx="10" cy="10" r="8" fill="${c.color}"/><rect x="6.5" y="8.5" width="7" height="3" rx=".5" fill="rgba(255,255,255,.9)"/><rect x="8.5" y="6.5" width="3" height="7" rx=".5" fill="rgba(255,255,255,.9)"/>`
+      :tp==="upa"
+      ?`<rect x="2" y="2" width="16" height="16" rx="3" fill="${c.color}"/><text x="10" y="13" text-anchor="middle" font-size="5.5" font-weight="800" fill="rgba(255,255,255,.9)" font-family="Inter,sans-serif">24h</text>`
+      :tp==="ubs"
+      ?`<polygon points="10,2 18,17 2,17" fill="${c.color}"/>`
+      :`<circle cx="10" cy="10" r="8" fill="${c.color}"/>`;
+    return `<div class="ri" data-cnes="${u.c}" onclick="focusUnit('${u.c}')">
+      <span class="ri-num">${start+i+1}</span>
+      <div class="ri-icon" style="background:${c.color}18;border:1px solid ${c.color}30">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">${iconSvg}</svg>
       </div>
-      <div class="rank-info">
-        <div class="rank-name">${u.n}</div>
-        <div class="rank-sub">${u.t} · CNES ${u.c}</div>
+      <div class="ri-info">
+        <div class="ri-name">${u.n}</div>
+        <div class="ri-sub">${u.t} · ${u.c}</div>
         <div class="occ-bar"><div class="occ-fill" style="width:${occ}%;background:${wc}"></div></div>
       </div>
-      <span class="rank-badge ${badgeClass(w)}">${fmt(w)}</span>
+      <span class="ri-badge ${wClass(w)}">${fmt(w)}</span>
     </div>`;
   }).join("");
 
-  document.getElementById("pagination").innerHTML=totalPages>1?`
-    <button class="pg-btn" onclick="goPage(-1)" ${page===0?"disabled":""}>← Ant.</button>
-    <span>${page+1} de ${totalPages}</span>
-    <button class="pg-btn" onclick="goPage(1)" ${page>=totalPages-1?"disabled":""}>Próx. →</button>
-  `:`<span>${s.length} unidades</span>`;
+  document.getElementById("pgn").innerHTML=totalPages>1
+    ?`<button class="pb" onclick="goPage(-1)" ${page===0?"disabled":""}>← Ant.</button>
+       <span>${page+1} / ${totalPages}</span>
+       <button class="pb" onclick="goPage(1)" ${page>=totalPages-1?"disabled":""}>Próx. →</button>`
+    :`<span>${s.length} unidades</span>`;
 }
 
-function render(){ updateMetrics(); drawMap(); renderList(); }
+window.focusUnit=function(cnes){
+  const u=UNITS.find(x=>x.c===cnes); if(!u) return;
+  mapInstance.flyTo([u.lat,u.lng],15,{duration:0.8});
+  const m=leafletMarkers.find(mk=>{
+    const ll=mk.getLatLng();
+    return Math.abs(ll.lat-u.lat)<0.0001&&Math.abs(ll.lng-u.lng)<0.0001;
+  });
+  if(m) setTimeout(()=>m.openPopup(),850);
+  document.querySelectorAll(".ri").forEach(el=>el.classList.remove("active-item"));
+  const el=document.querySelector(`[data-cnes="${cnes}"]`);
+  if(el) el.classList.add("active-item");
+};
 
-// Controls
-window.goPage=d=>{ const t=Math.ceil(getFiltered().length/PER); page=Math.max(0,Math.min(page+d,t-1)); renderList(); };
+window.goPage=d=>{
+  const f=UNITS.filter(u=>activeType==="all"||classify(u)===activeType);
+  const t=Math.ceil(f.length/PER);
+  page=Math.max(0,Math.min(page+d,t-1));
+  renderList();
+};
+
 window.setSort=v=>{
   sortBy=v; page=0;
-  document.getElementById("btn-wait").classList.toggle("active",v==="wait");
-  document.getElementById("btn-queue").classList.toggle("active",v==="queue");
-  render();
+  document.getElementById("sw").classList.toggle("on",v==="wait");
+  document.getElementById("sq").classList.toggle("on",v==="queue");
+  renderList();
 };
 
 document.getElementById("filters").addEventListener("click",e=>{
-  const btn=e.target.closest("[data-t]");
-  if(!btn) return;
+  const btn=e.target.closest("[data-t]"); if(!btn) return;
   activeType=btn.dataset.t; page=0;
   document.querySelectorAll(".fbtn").forEach(b=>b.classList.toggle("on",b.dataset.t===activeType));
-  render();
+  updateMetrics(); drawMarkers(); renderList();
 });
-document.getElementById("mapwrap").addEventListener("touchstart",e=>{
-  if(!e.target.closest("g")) document.getElementById("tip").style.display="none";
-},{passive:true});
 
 function updateClock(){
   document.getElementById("clock").textContent=new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
 }
+
+// ── START ──
+initMap();
 updateClock();
 setInterval(updateClock,30000);
-setInterval(render,10000);
-render();
+setInterval(()=>{ drawMarkers(); updateMetrics(); renderList(); },12000);
+drawMarkers();
+updateMetrics();
+renderList();
 </script>
 </body>
 </html>
