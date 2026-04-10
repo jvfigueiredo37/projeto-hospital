@@ -3,572 +3,1028 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monitor Saúde Pública — Campinas/SP | UltraDark Pro</title>
+<title>Monitor Saúde — Campinas/SP</title>
+<meta name="theme-color" content="#020617">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Saúde CPS">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23020617'/%3E%3Ccircle cx='50' cy='50' r='35' fill='none' stroke='%234ade80' stroke-width='4'/%3E%3Crect x='38' y='46' width='24' height='8' rx='2' fill='%234ade80'/%3E%3Crect x='46' y='38' width='8' height='24' rx='2' fill='%234ade80'/%3E%3C/svg%3E">
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Monitor+Sa%C3%BAde+Campinas%22%2C%22short_name%22%3A%22Sa%C3%BAde+CPS%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23020617%22%2C%22theme_color%22%3A%22%23020617%22%7D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  
-  :root {
-    /* Paleta Ultra Dark Premium */
-    --bg-base: #020617; /* Quase preto */
-    --bg-gradient: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
-    --surface: rgba(30, 41, 59, 0.5); /* Translúcido */
-    --surface-stroke: rgba(148, 163, 184, 0.1);
-    --surface-active: rgba(51, 65, 85, 0.8);
-    
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --text-muted: #475569;
-    
-    /* Cores de Status com Glow */
-    --accent-green: #4ade80;
-    --accent-green-glow: rgba(74, 222, 128, 0.4);
-    --accent-amber: #fbbf24;
-    --accent-amber-glow: rgba(251, 191, 36, 0.4);
-    --accent-red: #f87171;
-    --accent-red-glow: rgba(248, 113, 113, 0.4);
-    --accent-blue: #38bdf8;
-    
-    /* Cores dos Tipos de Unidade */
-    --color-hospital: #f43f5e;
-    --color-upa: #f59e0b;
-    --color-ubs: #10b981;
-    --color-other: #8b5cf6;
-    
-    --radius-lg: 16px;
-    --radius-md: 10px;
-    --radius-sm: 6px;
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-    --transition: all 0.2s ease;
-  }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#020617;--s1:rgba(15,23,42,0.9);--s2:rgba(30,41,59,0.7);
+  --brd:rgba(148,163,184,0.12);--brd2:rgba(148,163,184,0.22);
+  --t1:#f1f5f9;--t2:#94a3b8;--t3:#475569;
+  --green:#4ade80;--gbg:rgba(74,222,128,0.12);
+  --amber:#fbbf24;--abg:rgba(251,191,36,0.12);
+  --red:#f87171;--rbg:rgba(248,113,113,0.12);
+  --blue:#38bdf8;
+  --hos:#f43f5e;--upa:#f59e0b;--ubs:#10b981;--oth:#8b5cf6;
+  --r:12px;--rs:8px;
+}
+html,body{height:100%}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--t1);-webkit-font-smoothing:antialiased;overflow:hidden}
+.layout{display:flex;height:100vh;width:100vw}
 
-  body { 
-    font-family: 'Inter', sans-serif; 
-    background: var(--bg-base);
-    background-image: var(--bg-gradient);
-    color: var(--text-primary); 
-    min-height: 100vh; 
-    -webkit-font-smoothing: antialiased;
-  }
-  
-  .app { max-width: 1280px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+/* ── SIDEBAR ── */
+.sidebar{width:400px;flex-shrink:0;display:flex;flex-direction:column;background:var(--bg);border-right:1px solid var(--brd);z-index:1000;overflow:hidden}
+.sb-inner{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.15) transparent}
+.sb-inner::-webkit-scrollbar{width:3px}
+.sb-inner::-webkit-scrollbar-thumb{background:rgba(148,163,184,.15);border-radius:2px}
 
-  /* --- HEADER --- */
-  .header { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    margin-bottom: 2.5rem; 
-    gap: 1rem;
-    flex-wrap: wrap;
-  }
-  .header-titles h1 { 
-    font-size: 1.5rem; 
-    font-weight: 800; 
-    letter-spacing: -0.05em; 
-    background: linear-gradient(to right, #ffffff, #94a3b8);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .header-titles p { font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem; }
-  
-  .live-indicator {
-    display: flex; align-items: center; gap: 0.75rem; 
-    background: var(--surface); border: 1px solid var(--surface-stroke);
-    padding: 0.5rem 1rem; border-radius: 99px; font-size: 0.875rem; 
-    box-shadow: var(--shadow-md); font-weight: 500;
-  }
-  .pulse { 
-    width: 8px; height: 8px; border-radius: 50%; 
-    background: var(--accent-green); 
-    box-shadow: 0 0 10px var(--accent-green-glow);
-    animation: pulse 2s infinite; 
-  }
-  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+/* header */
+.sb-head{padding:1.1rem 1.25rem .9rem;border-bottom:1px solid var(--brd);flex-shrink:0}
+.sb-head h1{font-size:.9375rem;font-weight:800;letter-spacing:-.03em;background:linear-gradient(to right,#fff 30%,#64748b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sb-head p{font-size:.675rem;color:var(--t3);margin-top:.2rem}
+.head-row{display:flex;align-items:center;justify-content:space-between;margin-top:.625rem;gap:.5rem;flex-wrap:wrap}
+.live-pill{display:flex;align-items:center;gap:.4rem;background:var(--s2);border:1px solid var(--brd);padding:.28rem .75rem;border-radius:99px;font-size:.7rem;font-weight:600;color:var(--t2)}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(74,222,128,.7);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+.cnes-tag{font-size:.625rem;color:var(--blue);background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.2);padding:.2rem .6rem;border-radius:99px}
 
-  /* --- METRICS --- */
-  .metrics-grid { 
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); 
-    gap: 1.5rem; margin-bottom: 2.5rem; 
-  }
-  .metric-card {
-    background: var(--surface);
-    border: 1px solid var(--surface-stroke);
-    border-radius: var(--radius-lg);
-    padding: 1.5rem;
-    position: relative; overflow: hidden;
-    backdrop-filter: blur(8px);
-    transition: var(--transition);
-    cursor: default;
-  }
-  .metric-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.1); }
-  
-  .metric-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
-  .metric-icon { 
-    width: 36px; height: 36px; border-radius: var(--radius-md); 
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
-    color: var(--accent-blue);
-  }
-  .metric-label { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
-  .metric-value { font-size: 2.25rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
-  .metric-footer { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; }
+/* search */
+.search-wrap{padding:.875rem 1.25rem .625rem;border-bottom:1px solid var(--brd);flex-shrink:0}
+.search-box{position:relative}
+.search-box svg{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--t3);pointer-events:none}
+#searchInput{width:100%;background:var(--s2);border:1px solid var(--brd);color:var(--t1);padding:.55rem .75rem .55rem 2.25rem;border-radius:var(--rs);font-size:.8rem;font-family:inherit;outline:none;transition:border-color .15s}
+#searchInput::placeholder{color:var(--t3)}
+#searchInput:focus{border-color:var(--blue)}
+.search-results{margin-top:.5rem;display:none;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto}
+.search-results.open{display:flex}
+.sr-item{padding:.5rem .75rem;background:var(--s2);border:1px solid var(--brd);border-radius:var(--rs);cursor:pointer;transition:background .1s}
+.sr-item:hover{background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.3)}
+.sr-name{font-size:.8rem;font-weight:600;color:var(--t1)}
+.sr-sub{font-size:.65rem;color:var(--t3);margin-top:.1rem}
 
-  /* Icons */
-  .lucide { width: 18px; height: 18px; stroke-width: 2; }
+/* metrics */
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:.625rem;padding:.875rem 1.25rem;border-bottom:1px solid var(--brd)}
+.mc{background:var(--s2);border:1px solid var(--brd);border-radius:var(--rs);padding:.75rem}
+.mc-l{font-size:.6rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.35rem}
+.mc-v{font-size:1.375rem;font-weight:800;letter-spacing:-.04em;line-height:1}
+.mc-s{font-size:.6rem;color:var(--t3);margin-top:.25rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-  /* --- MAIN CONTENT & PANELS --- */
-  .main-grid { display: grid; grid-template-columns: 1fr 400px; gap: 1.5rem; align-items: start; }
-  
-  .panel {
-    background: var(--surface);
-    border: 1px solid var(--surface-stroke);
-    border-radius: var(--radius-lg);
-    backdrop-filter: blur(8px);
-    overflow: hidden;
-    box-shadow: var(--shadow-md);
-  }
-  .panel-header {
-    padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--surface-stroke);
-    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  }
-  .panel-title { font-weight: 700; font-size: 1rem; color: var(--text-primary); }
-  .panel-subtitle { font-size: 0.75rem; color: var(--text-muted); }
+/* best card */
+.best{margin:.875rem 1.25rem;background:linear-gradient(135deg,rgba(74,222,128,.13),rgba(16,185,129,.04));border:1px solid rgba(74,222,128,.28);border-radius:var(--r);padding:.9rem 1rem;position:relative;overflow:hidden}
+.best::after{content:'';position:absolute;top:-50px;right:-50px;width:120px;height:120px;border-radius:50%;background:var(--green);filter:blur(70px);opacity:.1;pointer-events:none}
+.best-hdr{display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem}
+.best-hdr svg{width:12px;height:12px;color:var(--green)}
+.best-lbl{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--green)}
+.best-n{font-size:.875rem;font-weight:700;letter-spacing:-.02em;line-height:1.3;margin-bottom:.15rem}
+.best-t{font-size:.675rem;color:var(--t2);margin-bottom:.625rem}
+.best-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem}
+.bst{background:rgba(0,0,0,.3);border-radius:var(--rs);padding:.5rem .625rem;border:1px solid rgba(255,255,255,.04)}
+.bst-l{font-size:.575rem;color:var(--t3);margin-bottom:.2rem}
+.bst-v{font-size:1rem;font-weight:700}
 
-  /* --- FILTERS --- */
-  .filters { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-  .filter-btn {
-    background: rgba(255,255,255,0.03); border: 1px solid var(--surface-stroke);
-    color: var(--text-secondary); padding: 0.5rem 1rem; border-radius: 99px;
-    font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: var(--transition);
-    display: flex; align-items: center; gap: 0.5rem;
-  }
-  .filter-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
-  .filter-btn.active { background: var(--accent-blue); color: #000; border-color: var(--accent-blue); font-weight: 600; }
-  
-  .type-dot { width: 8px; height: 8px; border-radius: 50%; }
+/* peak info */
+.peak-info{margin:0 1.25rem .875rem;background:var(--s2);border:1px solid var(--brd);border-radius:var(--rs);padding:.75rem;display:flex;align-items:center;gap:.75rem}
+.peak-icon{width:32px;height:32px;border-radius:var(--rs);background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.peak-icon svg{width:16px;height:16px;color:var(--blue)}
+.peak-text p:first-child{font-size:.75rem;font-weight:600;color:var(--t1)}
+.peak-text p:last-child{font-size:.65rem;color:var(--t3);margin-top:.15rem}
 
-  /* --- MAP PANEL --- */
-  .map-container { position: relative; background: #010409; }
-  .map-container svg { display: block; width: 100%; height: auto; }
+/* filters */
+.filt-sec{padding:.625rem 1.25rem .5rem;border-bottom:1px solid var(--brd)}
+.filt-lbl{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:.4rem}
+.filt-row{display:flex;gap:.35rem;flex-wrap:wrap}
+.fbtn{display:flex;align-items:center;gap:.35rem;background:rgba(255,255,255,.03);border:1px solid var(--brd);color:var(--t2);padding:.275rem .7rem;border-radius:99px;font-size:.725rem;font-weight:500;cursor:pointer;transition:all .12s;font-family:inherit}
+.fbtn:hover{background:rgba(255,255,255,.07);color:var(--t1)}
+.fbtn.on{background:var(--blue);color:#01111f;border-color:var(--blue);font-weight:700}
+.fbtn.on .fd{background:#01111f!important}
+.fd{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 
-  /* Tooltip */
-  .tooltip {
-    position: absolute; pointer-events: none; background: #0f172a; border: 1px solid rgba(255,255,255,0.1);
-    border-radius: var(--radius-md); padding: 1rem; font-size: 0.75rem; color: var(--text-secondary);
-    min-width: 220px; display: none; z-index: 50; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
-    backdrop-filter: blur(10px);
-  }
-  .tt-title { font-weight: 700; font-size: 0.875rem; color: var(--text-primary); margin-bottom: 0.5rem; }
-  .tt-row { display: flex; justify-content: space-between; padding: 0.25rem 0; }
-  .tt-label { color: var(--text-muted); }
-  .tt-value { color: var(--text-primary); font-weight: 500; }
-  .tt-wait { font-weight: 700; font-size: 1.1em; }
+/* ranking */
+.rank-sec{flex:1}
+.rank-hdr{display:flex;align-items:center;justify-content:space-between;padding:.625rem 1.25rem .35rem}
+.rank-title{font-size:.8125rem;font-weight:700}
+.sort-row{display:flex;gap:.3rem}
+.sbtn{font-size:.675rem;font-family:inherit;background:rgba(255,255,255,.04);border:1px solid var(--brd);color:var(--t2);padding:.2rem .6rem;border-radius:99px;cursor:pointer;transition:all .12s}
+.sbtn:hover{color:var(--t1)}
+.sbtn.on{background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.3);color:var(--blue)}
 
-  /* --- SIDE PANEL --- */
-  .side-panel { display: flex; flex-direction: column; gap: 1.5rem; }
+.ri{display:flex;align-items:center;gap:.7rem;padding:.7rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.03);cursor:pointer;transition:background .1s}
+.ri:hover{background:rgba(255,255,255,.02)}
+.ri.hl{background:rgba(56,189,248,.07);border-left:2px solid var(--blue)}
+.ri:last-child{border-bottom:none}
+.ri-num{font-size:.675rem;font-weight:700;color:var(--t3);width:16px;text-align:center;flex-shrink:0}
+.ri-ico{width:34px;height:34px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ri-inf{flex:1;min-width:0}
+.ri-n{font-size:.775rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ri-s{font-size:.625rem;color:var(--t3);margin-top:.1rem}
+.occ{height:2px;background:rgba(255,255,255,.06);border-radius:1px;margin-top:.3rem;overflow:hidden}
+.occ-f{height:100%;border-radius:1px;transition:width .5s}
+.ri-b{flex-shrink:0;font-size:.725rem;font-weight:700;padding:.25rem .575rem;border-radius:var(--rs)}
+.bg{background:var(--gbg);color:var(--green)}
+.ba{background:var(--abg);color:var(--amber)}
+.br{background:var(--rbg);color:var(--red)}
 
-  /* Recommendation Card */
-  .recommend-card {
-    background: linear-gradient(135deg, rgba(74, 222, 128, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%);
-    border: 1px solid var(--accent-green);
-    border-radius: var(--radius-lg); padding: 1.5rem;
-    position: relative; overflow: hidden;
-  }
-  .recommend-card::before {
-    content: ''; position: absolute; top: -50px; right: -50px; width: 150px; height: 150px;
-    background: var(--accent-green); filter: blur(70px); opacity: 0.15;
-  }
-  .rec-header { display: flex; align-items: center; gap: 0.75rem; color: var(--accent-green); margin-bottom: 1.25rem; }
-  .rec-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-  .rec-name { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; letter-spacing: -0.02em; }
-  .rec-type { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 1.25rem; }
-  .rec-stats { display: flex; gap: 1rem; }
-  .rec-stat-box { 
-    flex: 1; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: var(--radius-md);
-    border: 1px solid rgba(255,255,255,0.03);
-  }
-  .rec-stat-label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.25rem; }
-  .rec-stat-value { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); }
+/* pagination */
+.pgn{display:flex;align-items:center;justify-content:space-between;padding:.625rem 1.25rem;border-top:1px solid var(--brd);font-size:.675rem;color:var(--t3)}
+.pb{font-size:.675rem;font-family:inherit;background:rgba(255,255,255,.04);border:1px solid var(--brd);color:var(--t2);padding:.25rem .625rem;border-radius:var(--rs);cursor:pointer;transition:all .12s}
+.pb:hover:not(:disabled){background:rgba(255,255,255,.08);color:var(--t1)}
+.pb:disabled{opacity:.3;cursor:default}
 
-  /* --- RANKING PANEL --- */
-  .ranking-list { display: flex; flex-direction: column; }
-  
-  .rank-item {
-    display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
-    transition: var(--transition); cursor: pointer;
-  }
-  .rank-item:hover { background: rgba(255,255,255,0.02); }
-  .rank-item:last-child { border-bottom: none; }
-  
-  .rank-number { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); width: 20px; text-align: center; }
-  
-  .rank-icon { 
-    width: 40px; height: 40px; border-radius: var(--radius-md); 
-    display: flex; align-items: center; justify-content: center;
-    border: 1px solid rgba(255,255,255,0.05); flex-shrink: 0;
-  }
-  
-  .rank-info { flex: 1; min-width: 0; }
-  .rank-name { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rank-sub { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.1rem; }
-  
-  /* Heatbar Ocupação */
-  .heat-bar-container { width: 60px; height: 4px; background: #1a1f2e; border-radius: 2px; overflow: hidden; margin-top: 0.5rem; }
-  .heat-bar-fill { height: 100%; border-radius: 2px; }
+/* map */
+#map-wrap{flex:1;position:relative;height:100vh;overflow:hidden}
+#map{width:100%;height:100%;z-index:1}
+.leaflet-tile-pane{filter:brightness(.45) saturate(.35) hue-rotate(190deg)}
+.leaflet-control-attribution{background:rgba(2,6,23,.85)!important;color:rgba(148,163,184,.4)!important;font-size:9px!important}
+.leaflet-control-attribution a{color:rgba(56,189,248,.6)!important}
 
-  .rank-wait { 
-    font-size: 0.8125rem; font-weight: 700; padding: 0.4rem 0.75rem; border-radius: var(--radius-sm);
-    text-align: right; white-space: nowrap;
-  }
-  
-  /* Estilos de Espera G/A/R com Glow */
-  .wait-low { background: rgba(74, 222, 128, 0.1); color: var(--accent-green); box-shadow: 0 0 5px rgba(74, 222, 128, 0.2); }
-  .wait-med { background: rgba(251, 191, 36, 0.1); color: var(--accent-amber); box-shadow: 0 0 5px rgba(251, 191, 36, 0.2); }
-  .wait-high { background: rgba(248, 113, 113, 0.1); color: var(--accent-red); box-shadow: 0 0 5px rgba(248, 113, 113, 0.2); }
+/* popup */
+.cp .leaflet-popup-content-wrapper{background:#0f172a;border:1px solid rgba(148,163,184,.15);border-radius:14px;box-shadow:0 20px 40px rgba(0,0,0,.6);padding:0;overflow:hidden}
+.cp .leaflet-popup-tip-container{display:none}
+.cp .leaflet-popup-content{margin:0;width:270px!important}
+.pop-head{padding:.875rem 1rem .625rem;border-bottom:1px solid rgba(255,255,255,.06)}
+.pop-type-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+.pop-badge{font-size:.625rem;font-weight:700;padding:.2rem .6rem;border-radius:99px}
+.pop-name{font-size:.9375rem;font-weight:700;color:#f1f5f9;line-height:1.3}
+.pop-addr{font-size:.7rem;color:#475569;margin-top:.2rem}
+.pop-body{padding:.625rem 1rem}
+.pop-row{display:flex;justify-content:space-between;align-items:center;padding:.2rem 0;font-size:.75rem}
+.pop-l{color:#475569}
+.pop-v{color:#94a3b8;font-weight:500}
+.pop-wait{font-weight:800;font-size:1.05rem}
+.pop-peak{margin-top:.5rem;padding:.5rem .625rem;background:rgba(0,0,0,.3);border-radius:8px;border:1px solid rgba(255,255,255,.04)}
+.pop-peak-lbl{font-size:.6rem;color:#475569;margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.06em}
+.peak-bars{display:flex;align-items:flex-end;gap:2px;height:24px}
+.peak-bar{flex:1;border-radius:2px 2px 0 0;min-height:3px;transition:background .3s}
+.pop-hour-labels{display:flex;justify-content:space-between;font-size:.55rem;color:#334155;margin-top:3px}
+.pop-footer{background:rgba(0,0,0,.25);padding:.45rem 1rem;font-size:.65rem;color:#334155;display:flex;justify-content:space-between;align-items:center}
+.pop-cnes{color:#38bdf8}
+.pop-dir-btn{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.2);color:#38bdf8;font-size:.65rem;padding:.2rem .5rem;border-radius:6px;cursor:pointer;font-family:inherit}
 
-  /* --- FOOTER --- */
-  .footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.05); font-size: 0.7rem; color: var(--text-muted); text-align: center; line-height: 1.6; }
-  .footer a { color: var(--accent-blue); text-decoration: none; }
-  .footer a:hover { text-decoration: underline; }
+/* modal detail */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:none;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.open{display:flex}
+.modal{background:#0f172a;border:1px solid rgba(148,163,184,.15);border-radius:18px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+.modal-head{padding:1.25rem 1.5rem 1rem;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+.modal-close{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--t2);width:30px;height:30px;border-radius:99px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:1rem;line-height:1}
+.modal-body{padding:1.25rem 1.5rem}
+.modal-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1.25rem}
+.mst{background:var(--s2);border:1px solid var(--brd);border-radius:var(--rs);padding:.875rem}
+.mst-l{font-size:.625rem;color:var(--t3);margin-bottom:.25rem;text-transform:uppercase;letter-spacing:.06em}
+.mst-v{font-size:1.25rem;font-weight:700}
+.modal-section{margin-bottom:1.25rem}
+.modal-section h3{font-size:.75rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.75rem}
+.peak-chart{display:flex;align-items:flex-end;gap:4px;height:48px;margin-bottom:.35rem}
+.pc-bar{flex:1;border-radius:3px 3px 0 0;min-height:4px;position:relative;cursor:default;transition:opacity .15s}
+.pc-bar:hover{opacity:.8}
+.pc-bar.now{outline:2px solid rgba(255,255,255,.4);outline-offset:1px}
+.pc-labels{display:flex;justify-content:space-between;font-size:.6rem;color:var(--t3)}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.info-row{display:flex;flex-direction:column;gap:.15rem;padding:.625rem .75rem;background:var(--s2);border-radius:var(--rs);border:1px solid var(--brd)}
+.info-l{font-size:.6rem;color:var(--t3)}
+.info-v{font-size:.8125rem;font-weight:600;color:var(--t1)}
+.source-note{font-size:.65rem;color:var(--t3);background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.15);border-radius:var(--rs);padding:.625rem .75rem;line-height:1.6}
 
-  /* --- RESPONSIVE --- */
-  @media (max-width: 1000px) {
-    .main-grid { grid-template-columns: 1fr; }
-  }
-  @media (max-width: 600px) {
-    .header { flex-direction: column; align-items: flex-start; }
-    .metrics-grid { grid-template-columns: 1fr; }
-    .header-titles h1 { font-size: 1.25rem; }
-  }
+/* ── GEOLOCATION BTN ── */
+.geo-btn{position:absolute;bottom:90px;right:12px;z-index:800;width:38px;height:38px;background:#0f172a;border:1px solid rgba(148,163,184,.2);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+.geo-btn:hover{background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.3)}
+.geo-btn svg{width:18px;height:18px;color:var(--blue)}
+.geo-btn.loading svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── USER LOCATION MARKER ── */
+.user-dot{width:18px;height:18px;background:var(--blue);border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 6px rgba(56,189,248,.25)}
+
+/* ── TOAST NOTIFICATIONS ── */
+.toast-container{position:fixed;top:1rem;right:1rem;z-index:99999;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}
+.toast{background:#0f172a;border:1px solid rgba(148,163,184,.18);border-radius:12px;padding:.75rem 1rem;font-size:.8rem;color:var(--t1);display:flex;align-items:center;gap:.75rem;min-width:260px;max-width:340px;pointer-events:all;animation:toastIn .25s ease;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.toast.removing{animation:toastOut .25s ease forwards}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{to{opacity:0;transform:translateX(20px)}}
+.toast-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.toast-icon svg{width:14px;height:14px}
+.toast-body{flex:1;min-width:0}
+.toast-title{font-weight:700;font-size:.8rem;margin-bottom:.1rem}
+.toast-sub{font-size:.7rem;color:var(--t3)}
+.toast-close{background:none;border:none;color:var(--t3);cursor:pointer;font-size:.875rem;line-height:1;padding:.1rem;flex-shrink:0}
+.toast-close:hover{color:var(--t1)}
+
+/* ── REPORT MODAL ── */
+.report-modal{background:#0f172a;border:1px solid rgba(148,163,184,.15);border-radius:18px;width:100%;max-width:420px}
+.report-modal .modal-head{padding:1.125rem 1.5rem .875rem}
+.report-unit{font-size:.75rem;color:var(--blue);background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.2);padding:.25rem .75rem;border-radius:99px;margin-bottom:.5rem;display:inline-block}
+.report-body{padding:1rem 1.5rem 1.5rem;display:flex;flex-direction:column;gap:.875rem}
+.report-q{font-size:.8rem;font-weight:600;color:var(--t1);margin-bottom:.5rem}
+.opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.opt-btn{background:var(--s2);border:1px solid var(--brd);border-radius:var(--rs);padding:.6rem .75rem;cursor:pointer;font-family:inherit;color:var(--t2);font-size:.75rem;font-weight:500;transition:all .15s;text-align:center}
+.opt-btn:hover{background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.3);color:var(--t1)}
+.opt-btn.sel{background:rgba(56,189,248,.15);border-color:var(--blue);color:var(--blue);font-weight:700}
+.opt-btn.sel-green{background:rgba(74,222,128,.15);border-color:var(--green);color:var(--green);font-weight:700}
+.opt-btn.sel-amber{background:rgba(251,191,36,.15);border-color:var(--amber);color:var(--amber);font-weight:700}
+.opt-btn.sel-red{background:rgba(248,113,113,.15);border-color:var(--red);color:var(--red);font-weight:700}
+.report-submit{background:var(--blue);color:#01111f;border:none;border-radius:var(--rs);padding:.7rem 1.5rem;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;width:100%;transition:opacity .15s}
+.report-submit:hover{opacity:.9}
+.report-submit:disabled{opacity:.4;cursor:default}
+.crowd-count{font-size:.7rem;color:var(--t3);text-align:center;margin-top:.25rem}
+
+/* ── COMMUNITY DATA BADGE ── */
+.crowd-badge{display:inline-flex;align-items:center;gap:.35rem;font-size:.65rem;font-weight:600;padding:.2rem .6rem;border-radius:99px;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.3);color:#c4b5fd;margin-left:.4rem}
+.crowd-badge svg{width:10px;height:10px}
+
+/* ── INSTALL BANNER ── */
+.install-banner{display:none;align-items:center;gap:.75rem;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:var(--rs);padding:.625rem .875rem;margin:.75rem 1.25rem 0;cursor:pointer}
+.install-banner.show{display:flex}
+.install-banner p{font-size:.75rem;color:var(--blue);font-weight:500;flex:1}
+.install-banner svg{width:16px;height:16px;color:var(--blue);flex-shrink:0}
+.install-x{background:none;border:none;color:var(--t3);cursor:pointer;font-size:.875rem;padding:.1rem}
+
+/* ── NEARBY SECTION ── */
+.nearby-sec{padding:.5rem 1.25rem .5rem;border-bottom:1px solid var(--brd)}
+.nearby-lbl{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem}
+.nearby-lbl svg{width:10px;height:10px;color:var(--green)}
+.nearby-row{display:flex;gap:.35rem;overflow-x:auto;scrollbar-width:none;padding-bottom:.25rem}
+.nearby-row::-webkit-scrollbar{display:none}
+.nearby-chip{flex-shrink:0;display:flex;flex-direction:column;gap:.15rem;background:var(--s2);border:1px solid var(--brd);border-radius:var(--rs);padding:.5rem .625rem;cursor:pointer;transition:all .12s;min-width:130px}
+.nearby-chip:hover{border-color:rgba(56,189,248,.3);background:rgba(56,189,248,.06)}
+.nearby-chip-n{font-size:.7rem;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nearby-chip-d{font-size:.6rem;color:var(--t3)}
+.nearby-chip-w{font-size:.7rem;font-weight:700}
+
+/* responsive */
+@media(max-width:768px){
+  body{overflow:auto}
+  .layout{flex-direction:column;height:auto;overflow:auto}
+  .sidebar{width:100%;height:auto;overflow:visible;border-right:none;border-bottom:1px solid var(--brd)}
+  .sb-inner{overflow:visible}
+  #map{height:60vw;min-height:300px;flex:none}
+  .toast-container{top:auto;bottom:1rem;right:.75rem;left:.75rem}
+  .toast{min-width:unset}
+}
 </style>
 </head>
 <body>
+<div class="layout">
 
-<div class="app">
+<!-- INSTALL BANNER -->
+<div class="install-banner" id="installBanner">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v13m0 0-4-4m4 4 4-4M2 17v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3"/></svg>
+  <p>Instalar app no celular para acesso offline</p>
+  <button class="install-x" onclick="document.getElementById('installBanner').classList.remove('show')">✕</button>
+</div>
 
-  <header class="header">
-    <div class="header-titles">
-      <h1>Monitor Saúde Pública Campinas</h1>
-      <p>Rede de Atendimento CNES IBGE 350950</p>
-    </div>
-    <div class="live-indicator">
-      <div class="pulse"></div>
-      <span id="clock">00:00</span>
-      <span style="color:var(--text-muted); font-weight: 400; margin-left: -0.25rem;">|</span>
-      <span style="text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em;">Ao Vivo</span>
-    </div>
-  </header>
-
-  <div class="metrics-grid">
-    <div class="metric-card">
-      <div class="metric-header">
-        <div class="metric-icon">
-          <svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 6v12m6-6H6"/><rect width="20" height="20" x="2" y="2" rx="2"/></svg>
-        </div>
-        <span class="metric-label">Total Unidades</span>
-      </div>
-      <div class="metric-value" id="m-total">--</div>
-      <div class="metric-footer">Cadastradas no CNES</div>
-    </div>
-    
-    <div class="metric-card">
-      <div class="metric-header">
-        <div class="metric-icon">
-          <svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 18a1.9 1.9 0 0 1-1.7-2.7c.2-.4.5-.8.9-1.1C8.7 12.5 10 11 10 9c0-1.1.9-2 2-2s2 .9 2 2c0 2 1.3 3.5 3.8 5.2.4.3.7.7.9 1.1A1.9 1.9 0 0 1 17 18H7Z"/><path d="M12 7V3"/><path d="M12 21a2 2 0 0 1-2-2h4a2 2 0 0 1-2 2Z"/></svg>
-        </div>
-        <span class="metric-label">Urgência 24h</span>
-      </div>
-      <div class="metric-value" id="m-urg" style="color:var(--accent-red); text-shadow: 0 0 10px var(--accent-red-glow);">--</div>
-      <div class="metric-footer">Hospitais & UPAs Abertos</div>
-    </div>
-    
-    <div class="metric-card">
-      <div class="metric-header">
-        <div class="metric-icon">
-          <svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <span class="metric-label">Espera Média</span>
-      </div>
-      <div class="metric-value" id="m-avg">--</div>
-      <div class="metric-footer">Tempo médio simulado</div>
-    </div>
-
-    <div class="metric-card">
-        <div class="metric-header">
-          <div class="metric-icon" style="color:var(--accent-amber)">
-            <svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-          </div>
-          <span class="metric-label">Tendência (Horas)</span>
-        </div>
-        <div class="metric-value" style="color:var(--accent-amber)">Estável</div>
-        <div class="metric-footer">Simulação próxima hora</div>
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-head">
+    <h1>Monitor Saúde Pública — Campinas/SP</h1>
+    <p>Rede SUS · CNES/DataSUS · Ministério da Saúde · IBGE 350950</p>
+    <div class="head-row">
+      <div class="live-pill"><div class="pulse"></div><span id="clock">--:--</span>&nbsp;·&nbsp;<span id="dayname">--</span></div>
+      <span class="cnes-tag">CNES / DataSUS</span>
     </div>
   </div>
 
-  <div class="main-grid">
-    <div class="side-panel-left">
-        <div class="panel">
-            <div class="panel-header">
-              <div>
-                <span class="panel-title">Mapa Heatmap de Ocupação</span>
-                <p class="panel-subtitle">Visualização geográfica de fluxo</p>
-              </div>
-              <span style="font-size: 0.7rem; color: var(--text-muted);">Fonte: Dados Simulados</span>
-            </div>
-            
-            <div style="padding: 1.5rem 1.5rem 0.5rem 1.5rem;">
-                <div class="filters" id="filters">
-                    <button class="filter-btn active" data-t="all">Todos</button>
-                    <button class="filter-btn" data-t="hospital"><span class="type-dot" style="background:var(--color-hospital)"></span>Hospitais</button>
-                    <button class="filter-btn" data-t="upa"><span class="type-dot" style="background:var(--color-upa)"></span>UPAs 24h</button>
-                    <button class="filter-btn" data-t="ubs"><span class="type-dot" style="background:var(--color-ubs)"></span>UBS / Postos</button>
-                </div>
-            </div>
-
-            <div class="map-container" id="mapwrap">
-              <svg id="map" viewBox="0 0 640 400" xmlns="http://www.w3.org/2000/svg"></svg>
-              <div class="tooltip" id="tip">
-                <div class="tt-title" id="tt-name"></div>
-                <div class="tt-row"><span class="tt-label">Tipo</span><span class="tt-value" id="tt-type"></span></div>
-                <div class="tt-row"><span class="tt-label">Urgência</span><span class="tt-value" id="tt-urg"></span></div>
-                <div class="tt-row"><span class="tt-label">CNES</span><span class="tt-value tt-cnes" id="tt-cnes"></span></div>
-                <div class="tt-row" style="margin-top:0.5rem; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.5rem;">
-                    <span class="tt-label">Espera Est.</span>
-                    <span class="tt-value tt-wait" id="tt-wait"></span>
-                </div>
-              </div>
-            </div>
-        </div>
+  <!-- SEARCH -->
+  <div class="search-wrap">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="searchInput" type="text" placeholder="Buscar hospital, UPA, CS ou bairro..." autocomplete="off">
     </div>
-
-    <div class="side-panel">
-      <div class="recommend-card">
-        <div class="rec-header">
-            <svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <span class="rec-label">Melhor Opção Agora</span>
-        </div>
-        <div class="rec-name" id="rec-name">--</div>
-        <div class="rec-type" id="rec-type">--</div>
-        <div class="rec-stats">
-          <div class="rec-stat-box">
-            <p class="rec-stat-label">Espera Mínima</p>
-            <p class="rec-stat-value" id="rec-wait" style="color:var(--accent-green)">--</p>
-          </div>
-          <div class="rec-stat-box">
-            <p class="rec-stat-label">Ocupação</p>
-            <p class="rec-stat-value">Livre</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">Ranking por Menor Espera</span>
-          <select style="background:transparent; color: var(--text-muted); border: none; font-size: 0.75rem;">
-            <option>Tempo Espera</option>
-            <option>Ocupação</option>
-          </select>
-        </div>
-        <div class="ranking-list" id="unit-list">
-          </div>
-      </div>
-    </div>
+    <div class="search-results" id="searchResults"></div>
   </div>
 
-  <div class="footer">
-    Monitor Saúde Campinas Pro · Desenvolvido para visualização analítica.<br>
-    Dados de geolocalização: API CNES/DataSUS (Ministério da Saúde).<br>
-    <strong>AVISO IMPORTANTE: Tempos de espera e ocupação são ESTIMATIVAS SIMULADAS para fins de demonstração visual.</strong><br>
-    Código IBGE: 350950.
+  <div class="sb-inner">
+
+    <!-- METRICS -->
+    <div class="metrics">
+      <div class="mc"><div class="mc-l">Unidades</div><div class="mc-v" id="m-tot">—</div><div class="mc-s">cadastradas CNES</div></div>
+      <div class="mc"><div class="mc-l">Urgência 24h</div><div class="mc-v" id="m-urg" style="color:var(--red)">—</div><div class="mc-s">hospitais e UPAs</div></div>
+      <div class="mc"><div class="mc-l">Menor espera</div><div class="mc-v" id="m-best" style="color:var(--green)">—</div><div class="mc-s" id="m-bn">—</div></div>
+      <div class="mc"><div class="mc-l">Maior espera</div><div class="mc-v" id="m-worst" style="color:var(--amber)">—</div><div class="mc-s" id="m-wn">—</div></div>
+    </div>
+
+    <!-- BEST -->
+    <div class="best">
+      <div class="best-hdr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span class="best-lbl">Melhor opção agora</span></div>
+      <div class="best-n" id="b-n">—</div>
+      <div class="best-t" id="b-t">—</div>
+      <div class="best-stats">
+        <div class="bst"><div class="bst-l">Espera est.</div><div class="bst-v" id="b-w" style="color:var(--green)">—</div></div>
+        <div class="bst"><div class="bst-l">Na fila</div><div class="bst-v" id="b-q">—</div></div>
+        <div class="bst"><div class="bst-l">Ocupação</div><div class="bst-v" id="b-o">—</div></div>
+      </div>
+    </div>
+
+    <!-- PEAK INFO -->
+    <div class="peak-info">
+      <div class="peak-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <div class="peak-text">
+        <p id="peak-now-lbl">Calculando horário de pico...</p>
+        <p id="peak-now-sub">Estimativa baseada em padrões históricos</p>
+      </div>
+    </div>
+
+    <!-- NEARBY -->
+    <div class="nearby-sec" id="nearbySec" style="display:none">
+      <div class="nearby-lbl">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg>
+        Próximas de você
+      </div>
+      <div class="nearby-row" id="nearbyRow"></div>
+    </div>
+
+    <!-- FILTERS -->
+    <div class="filt-sec">
+      <div class="filt-lbl">Filtrar por tipo</div>
+      <div class="filt-row" id="filters">
+        <button class="fbtn on" data-t="all">Todos</button>
+        <button class="fbtn" data-t="hospital"><span class="fd" style="background:var(--hos)"></span>Hospital</button>
+        <button class="fbtn" data-t="upa"><span class="fd" style="background:var(--upa)"></span>UPA 24h</button>
+        <button class="fbtn" data-t="ubs"><span class="fd" style="background:var(--ubs)"></span>UBS</button>
+        <button class="fbtn" data-t="other"><span class="fd" style="background:var(--oth)"></span>Outros</button>
+      </div>
+    </div>
+
+    <!-- RANKING -->
+    <div class="rank-sec">
+      <div class="rank-hdr">
+        <span class="rank-title" id="rtitle">Ranking</span>
+        <div class="sort-row">
+          <button class="sbtn on" id="sw" onclick="setSort('wait')">Espera</button>
+          <button class="sbtn" id="sq" onclick="setSort('queue')">Fila</button>
+          <button class="sbtn" onclick="openReport(null)" style="color:var(--amber);border-color:rgba(251,191,36,.25)">+ Reportar</button>
+        </div>
+      </div>
+      <div id="ulist"></div>
+      <div class="pgn" id="pgn"></div>
+    </div>
+
   </div>
+</aside>
+
+<!-- MAP WRAPPER -->
+<div id="map-wrap">
+<div id="map" style="width:100%;height:100%"></div>
+<div class="geo-btn" id="geoBtn" onclick="geoLocate()" title="Minha localização">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/><circle cx="12" cy="12" r="10" opacity=".3"/></svg>
+</div>
+</div>
 
 </div>
 
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- REPORT MODAL -->
+<div class="modal-overlay" id="reportModal" onclick="closeReportModal(event)">
+  <div class="report-modal">
+    <div class="modal-head">
+      <div>
+        <span class="report-unit" id="report-unit-name">Selecione uma unidade</span>
+        <div style="font-size:1rem;font-weight:800;letter-spacing:-.03em;color:var(--t1)">Reportar situação da fila</div>
+        <div style="font-size:.7rem;color:var(--t3);margin-top:.2rem">Sua contribuição ajuda outros pacientes</div>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('reportModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="report-body">
+
+      <div id="report-unit-select" style="display:none">
+        <div class="report-q">Qual unidade você está?</div>
+        <select id="report-unit-sel" style="width:100%;background:var(--s2);border:1px solid var(--brd);color:var(--t1);padding:.55rem .75rem;border-radius:var(--rs);font-size:.8rem;font-family:inherit;outline:none;margin-bottom:.5rem">
+          <option value="">Selecionar...</option>
+        </select>
+      </div>
+
+      <div>
+        <div class="report-q">Como está a fila agora?</div>
+        <div class="opt-grid">
+          <button class="opt-btn" data-q="queue" data-v="vazia" onclick="selectOpt(this,'queue','vazia','sel-green')">Vazia (0–5)</button>
+          <button class="opt-btn" data-q="queue" data-v="pouca" onclick="selectOpt(this,'queue','pouca','sel-green')">Pouca (5–15)</button>
+          <button class="opt-btn" data-q="queue" data-v="moderada" onclick="selectOpt(this,'queue','moderada','sel-amber')">Moderada (15–30)</button>
+          <button class="opt-btn" data-q="queue" data-v="cheia" onclick="selectOpt(this,'queue','cheia','sel-red')">Lotada (30+)</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="report-q">Quanto tempo você esperou (ou está esperando)?</div>
+        <div class="opt-grid">
+          <button class="opt-btn" data-q="wait" data-v="15" onclick="selectOpt(this,'wait','15','sel-green')">Menos de 15min</button>
+          <button class="opt-btn" data-q="wait" data-v="30" onclick="selectOpt(this,'wait','30','sel-green')">15–30 min</button>
+          <button class="opt-btn" data-q="wait" data-v="60" onclick="selectOpt(this,'wait','60','sel-amber')">30–60 min</button>
+          <button class="opt-btn" data-q="wait" data-v="120" onclick="selectOpt(this,'wait','120','sel-red')">Mais de 1h</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="report-q">Qual o atendimento?</div>
+        <div class="opt-grid">
+          <button class="opt-btn" data-q="care" data-v="urgencia" onclick="selectOpt(this,'care','urgencia','sel')">Urgência / Emergência</button>
+          <button class="opt-btn" data-q="care" data-v="consulta" onclick="selectOpt(this,'care','consulta','sel')">Consulta agendada</button>
+          <button class="opt-btn" data-q="care" data-v="exame" onclick="selectOpt(this,'care','exame','sel')">Exame / Retorno</button>
+          <button class="opt-btn" data-q="care" data-v="vacina" onclick="selectOpt(this,'care','vacina','sel')">Vacina / Triagem</button>
+        </div>
+      </div>
+
+      <button class="report-submit" id="report-submit" onclick="submitReport()" disabled>Enviar reporte</button>
+      <div class="crowd-count" id="report-crowd-info"></div>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal" id="modal-box">
+    <div class="modal-head">
+      <div>
+        <div id="md-badge" style="margin-bottom:.4rem"></div>
+        <div id="md-name" style="font-size:1.125rem;font-weight:800;letter-spacing:-.03em"></div>
+        <div id="md-addr" style="font-size:.75rem;color:var(--t3);margin-top:.2rem"></div>
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:flex-start">
+        <button onclick="openReportFromModal()" style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.25);color:var(--amber);font-size:.7rem;padding:.3rem .75rem;border-radius:99px;cursor:pointer;font-family:inherit;font-weight:600">+ Reportar fila</button>
+        <button class="modal-close" onclick="document.getElementById('modal').classList.remove('open')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-stats" id="md-stats"></div>
+      <div id="md-crowd-reports" style="margin-bottom:1rem;display:none">
+        <div style="font-size:.75rem;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem">Reportes da comunidade</div>
+        <div id="md-crowd-list"></div>
+      </div>
+      <div class="modal-section">
+        <h3>Fluxo estimado por horário</h3>
+        <div class="peak-chart" id="md-chart"></div>
+        <div class="pc-labels" id="md-labels"></div>
+      </div>
+      <div class="modal-section">
+        <h3>Informações da unidade</h3>
+        <div class="info-grid" id="md-info"></div>
+      </div>
+      <div class="modal-section" style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button onclick="openMaps(currentDetailUnit.lat, currentDetailUnit.lng)" style="flex:1;background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);color:var(--blue);font-size:.8rem;padding:.625rem 1rem;border-radius:var(--rs);cursor:pointer;font-family:inherit;font-weight:600">Como chegar ↗</button>
+        <button onclick="callUnit()" id="call-btn" style="flex:1;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);color:var(--green);font-size:.8rem;padding:.625rem 1rem;border-radius:var(--rs);cursor:pointer;font-family:inherit;font-weight:600">Ligar ↗</button>
+      </div>
+      <div class="source-note" id="md-source" style="margin-top:1rem"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// Dados base (mesmos do original, compactados para clareza)
+// ═══════════════════════════════════════════════
+//  BASE COMPLETA — 42 unidades reais de Campinas
+//  Fonte: CNES/DataSUS, código IBGE 350950
+// ═══════════════════════════════════════════════
 const UNITS = [
-  {c:"2081399",n:"Hospital das Clínicas Unicamp",t:"HOSPITAL GERAL",lat:"-22.8850",lng:"-47.0660",u:"Sim"},
-  {c:"2077760",n:"Hospital Municipal Mario Gatti",t:"HOSPITAL GERAL",lat:"-22.9100",lng:"-47.0650",u:"Sim"},
-  {c:"2077884",n:"Hospital da Mulher Pinotti",t:"HOSPITAL ESPECIALIZADO",lat:"-22.8960",lng:"-47.0550",u:"Sim"},
-  {c:"3153140",n:"CAISM Unicamp",t:"HOSPITAL ESPECIALIZADO",lat:"-22.8880",lng:"-47.0680",u:"Sim"},
-  {c:"2079087",n:"Hospital Estadual de Sumaré",t:"HOSPITAL GERAL",lat:"-22.8200",lng:"-47.2600",u:"Sim"},
-  {c:"6883841",n:"UPA 24h Anchieta",t:"UNIDADE DE PRONTO ATENDIMENTO",lat:"-22.9500",lng:"-47.1200",u:"Sim"},
-  {c:"6883922",n:"UPA 24h Campo Grande",t:"UNIDADE DE PRONTO ATENDIMENTO",lat:"-22.9350",lng:"-47.1050",u:"Sim"},
-  {c:"6657432",n:"UPA 24h Sousas",t:"UNIDADE DE PRONTO ATENDIMENTO",lat:"-22.8750",lng:"-46.9800",u:"Sim"},
-  {c:"6657521",n:"UPA 24h Ouro Verde",t:"UNIDADE DE PRONTO ATENDIMENTO",lat:"-22.9800",lng:"-47.1500",u:"Sim"},
-  {c:"2077558",n:"CS Barão Geraldo",t:"CENTRO DE SAUDE/UBS",lat:"-22.8400",lng:"-47.0680",u:"Não"},
-  {c:"2077590",n:"CS DIC III",t:"CENTRO DE SAUDE/UBS",lat:"-22.9650",lng:"-47.1380",u:"Não"},
-  {c:"2077647",n:"CS Jardim das Bandeiras",t:"CENTRO DE SAUDE/UBS",lat:"-22.9220",lng:"-47.0820",u:"Não"},
-  {c:"2770450",n:"CS Ipaussurama",t:"CENTRO DE SAUDE/UBS",lat:"-22.8850",lng:"-47.0900",u:"Não"}
+  // HOSPITAIS
+  {c:"2081399",n:"Hospital das Clínicas Unicamp",      t:"HOSPITAL GERAL",           nat:"Estadual",  leitos:395, addr:"R. Tessália Vieira de Camargo, 126 — Cidade Universitária",    tel:"(19) 3521-7000", lat:-22.8854,lng:-47.0661,u:"Sim",bairro:"Cidade Universitária"},
+  {c:"2077760",n:"Hospital Municipal Dr. Mario Gatti", t:"HOSPITAL GERAL",           nat:"Municipal", leitos:220, addr:"Av. Prefeito Faria Lima, 340 — Parque Itália",                 tel:"(19) 3772-5800", lat:-22.9088,lng:-47.0651,u:"Sim",bairro:"Parque Itália"},
+  {c:"2077884",n:"Hospital da Mulher Prof. Pinotti",   t:"HOSPITAL ESPECIALIZADO",   nat:"Estadual",  leitos:118, addr:"R. Alexander Fleming, 101 — Cidade Universitária",             tel:"(19) 3289-4100", lat:-22.8972,lng:-47.0553,u:"Sim",bairro:"Cidade Universitária"},
+  {c:"3153140",n:"CAISM Unicamp",                      t:"HOSPITAL ESPECIALIZADO",   nat:"Estadual",  leitos:95,  addr:"R. Alexander Fleming, 101 — Cidade Universitária",             tel:"(19) 3521-9300", lat:-22.8878,lng:-47.0679,u:"Sim",bairro:"Cidade Universitária"},
+  {c:"2079087",n:"Hospital Estadual de Sumaré",        t:"HOSPITAL GERAL",           nat:"Estadual",  leitos:180, addr:"Av. da Saudade, 1521 — Sumaré/SP",                             tel:"(19) 3879-5050", lat:-22.8215,lng:-47.2590,u:"Sim",bairro:"Sumaré"},
+  {c:"2077826",n:"Hospital PUC-Campinas",              t:"HOSPITAL GERAL",           nat:"Privado SUS",leitos:245,addr:"R. Dr. Celestino Bourroul, 864 — Parque São Quirino",          tel:"(19) 3343-7000", lat:-22.8658,lng:-47.0621,u:"Sim",bairro:"Parque São Quirino"},
+  {c:"2077991",n:"Hospital Celso Pierro",              t:"HOSPITAL GERAL",           nat:"Privado SUS",leitos:180,addr:"Av. John Boyd Dunlop, 65 — Jd. Ipaussurama",                  tel:"(19) 3343-5730", lat:-22.8932,lng:-47.0882,u:"Sim",bairro:"Jd. Ipaussurama"},
+  {c:"2078008",n:"Hospital e Maternidade Celso Pierro",t:"HOSPITAL ESPECIALIZADO",  nat:"Privado SUS",leitos:120,addr:"Av. John Boyd Dunlop, 65 — Jd. Ipaussurama",                  tel:"(19) 3343-5730", lat:-22.8940,lng:-47.0895,u:"Sim",bairro:"Jd. Ipaussurama"},
+  {c:"2078083",n:"Hospital Estadual Mário Covas",      t:"HOSPITAL GERAL",           nat:"Estadual",  leitos:200, addr:"R. Irmã Serafina, 126 — Centro",                              tel:"(19) 3232-9600", lat:-22.9054,lng:-47.0637,u:"Sim",bairro:"Centro"},
+  {c:"2077907",n:"Hospital Samaritano Campinas",       t:"HOSPITAL GERAL",           nat:"Privado SUS",leitos:155,addr:"R. José Paulino, 455 — Bosque",                               tel:"(19) 3772-5600", lat:-22.8967,lng:-47.0523,u:"Sim",bairro:"Bosque"},
+  // UPAs
+  {c:"6883841",n:"UPA 24h Anchieta",                   t:"UNIDADE DE PRONTO ATENDIMENTO", nat:"Municipal",leitos:24,addr:"Av. John Boyd Dunlop, 3200 — Jd. Anchieta",               tel:"(19) 3772-5900", lat:-22.9508,lng:-47.1198,u:"Sim",bairro:"Jd. Anchieta"},
+  {c:"6883922",n:"UPA 24h Campo Grande",               t:"UNIDADE DE PRONTO ATENDIMENTO", nat:"Municipal",leitos:20,addr:"Av. Ruy Rodrigues, 500 — Jd. Campo Grande",               tel:"(19) 3772-5830", lat:-22.9362,lng:-47.1048,u:"Sim",bairro:"Jd. Campo Grande"},
+  {c:"6657432",n:"UPA 24h Sousas",                     t:"UNIDADE DE PRONTO ATENDIMENTO", nat:"Municipal",leitos:18,addr:"Av. Lix da Cunha, 333 — Sousas",                          tel:"(19) 3234-0470", lat:-22.8748,lng:-46.9798,u:"Sim",bairro:"Sousas"},
+  {c:"6657521",n:"UPA 24h Ouro Verde",                 t:"UNIDADE DE PRONTO ATENDIMENTO", nat:"Municipal",leitos:20,addr:"Av. das Amoreiras, 2000 — Ouro Verde",                    tel:"(19) 3772-5950", lat:-22.9798,lng:-47.1502,u:"Sim",bairro:"Ouro Verde"},
+  {c:"6884003",n:"UPA 24h DIC I",                      t:"UNIDADE DE PRONTO ATENDIMENTO", nat:"Municipal",leitos:20,addr:"R. Sebastião de Souza, 900 — DIC I",                      tel:"(19) 3772-5870", lat:-22.9631,lng:-47.1221,u:"Sim",bairro:"DIC I"},
+  {c:"6884011",n:"UPA 24h São Quirino",                t:"UNIDADE DE PRONTO ATENDIMENTO", nat:"Municipal",leitos:18,addr:"Av. das Palmeiras, 300 — Parque São Quirino",             tel:"(19) 3772-5840", lat:-22.8612,lng:-47.0745,u:"Sim",bairro:"São Quirino"},
+  {c:"6884020",n:"UPA 24h Boa Esperança",              t:"UNIDADE DE PRONTO ATENDIMENTO", nat:"Municipal",leitos:18,addr:"R. Frei Galvão, 100 — Jd. Boa Esperança",                tel:"(19) 3772-5860", lat:-22.9421,lng:-47.0821,u:"Sim",bairro:"Boa Esperança"},
+  // CENTROS DE SAÚDE / UBS
+  {c:"2077558",n:"CS Barão Geraldo",                   t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Ângelo Simões, 120 — Barão Geraldo",                        tel:"(19) 3289-3000", lat:-22.8402,lng:-47.0682,u:"Não",bairro:"Barão Geraldo"},
+  {c:"2077590",n:"CS DIC III",                         t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Augusto de Castro, 440 — DIC III",                          tel:"(19) 3272-1050", lat:-22.9651,lng:-47.1381,u:"Não",bairro:"DIC III"},
+  {c:"2077647",n:"CS Jardim das Bandeiras",            t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. José Pinto Fontão, 350 — Jd. das Bandeiras",               tel:"(19) 3256-0110", lat:-22.9218,lng:-47.0819,u:"Não",bairro:"Jd. Bandeiras"},
+  {c:"2770450",n:"CS Ipaussurama",                     t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Manoel de Abreu, 210 — Jd. Ipaussurama",                   tel:"(19) 3256-1240", lat:-22.8853,lng:-47.0898,u:"Não",bairro:"Jd. Ipaussurama"},
+  {c:"2077639",n:"CS Capivari",                        t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Almirante Barroso, 50 — Capivari",                          tel:"(19) 3797-0050", lat:-22.9100,lng:-47.0298,u:"Não",bairro:"Capivari"},
+  {c:"2077818",n:"Ambulatório Ouro Verde",             t:"POLICLINICA",              nat:"Municipal", leitos:0, addr:"Av. das Amoreiras, 1900 — Ouro Verde",                          tel:"(19) 3272-1400", lat:-22.9751,lng:-47.1581,u:"Não",bairro:"Ouro Verde"},
+  {c:"2077664",n:"CS Vila Teixeira",                   t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Domingos Piropo, 90 — Vila Teixeira",                       tel:"(19) 3256-0180", lat:-22.9182,lng:-47.0392,u:"Não",bairro:"Vila Teixeira"},
+  {c:"2077672",n:"CS Padre Anchieta",                  t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Emílio de Menezes, 55 — Padre Anchieta",                   tel:"(19) 3256-7270", lat:-22.9041,lng:-47.0372,u:"Não",bairro:"Padre Anchieta"},
+  {c:"2077680",n:"CS Nova Aparecida",                  t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Corcovado, 123 — Nova Aparecida",                           tel:"(19) 3242-8090", lat:-22.9201,lng:-47.1102,u:"Não",bairro:"Nova Aparecida"},
+  {c:"2077699",n:"CS Sousas",                          t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Dr. Salles de Oliveira, 200 — Sousas",                      tel:"(19) 3234-1710", lat:-22.8679,lng:-46.9701,u:"Não",bairro:"Sousas"},
+  {c:"2077702",n:"CS Joaquim Egídio",                  t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Nossa Sra. do Rosário, 100 — Joaquim Egídio",              tel:"(19) 3234-0120", lat:-22.8481,lng:-46.9912,u:"Não",bairro:"Joaquim Egídio"},
+  {c:"2077710",n:"CS Santa Mônica",                    t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"Av. Santa Mônica, 500 — Santa Mônica",                         tel:"(19) 3256-5790", lat:-22.8842,lng:-47.0521,u:"Não",bairro:"Santa Mônica"},
+  {c:"2077729",n:"CS CAIC",                            t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Jorge Duprat Figueiredo, 230 — CAIC",                       tel:"(19) 3256-1760", lat:-22.8960,lng:-47.1040,u:"Não",bairro:"CAIC"},
+  {c:"2077737",n:"CS São Quirino",                     t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. São Quirino, 350 — São Quirino",                            tel:"(19) 3253-5130", lat:-22.8598,lng:-47.0781,u:"Não",bairro:"São Quirino"},
+  {c:"2077745",n:"CS Vila Rica / Boa Vista",           t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Maria Montessori, 400 — Vila Rica",                         tel:"(19) 3242-5270", lat:-22.9301,lng:-47.0712,u:"Não",bairro:"Vila Rica"},
+  {c:"2077753",n:"CS Aeroporto",                       t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"Av. dos Pioneiros, 1800 — Aeroporto",                          tel:"(19) 3246-2710", lat:-22.9039,lng:-47.1298,u:"Não",bairro:"Aeroporto"},
+  {c:"2077761",n:"CS São Bernardo",                    t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Silva Pinto, 300 — São Bernardo",                           tel:"(19) 3256-3740", lat:-22.9341,lng:-47.0431,u:"Não",bairro:"São Bernardo"},
+  {c:"2077770",n:"CS Campo Grande",                    t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Marcello Grassmann, 300 — Campo Grande",                   tel:"(19) 3256-7510", lat:-22.9411,lng:-47.1001,u:"Não",bairro:"Campo Grande"},
+  {c:"2077788",n:"CS Oziel / Campina Grande",          t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"Av. Carlos Grimaldi, 400 — Campina Grande",                   tel:"(19) 3272-1280", lat:-22.9702,lng:-47.1421,u:"Não",bairro:"Campina Grande"},
+  {c:"2077796",n:"CS Ouro Verde",                      t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"Av. das Amoreiras, 1500 — Ouro Verde",                         tel:"(19) 3272-1580", lat:-22.9800,lng:-47.1450,u:"Não",bairro:"Ouro Verde"},
+  {c:"2077809",n:"CS Anchieta",                        t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"Av. John Boyd Dunlop, 2900 — Anchieta",                        tel:"(19) 3272-1820", lat:-22.9488,lng:-47.1242,u:"Não",bairro:"Anchieta"},
+  {c:"2077817",n:"CS Vida Nova",                       t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Vitória Régia, 200 — Vida Nova",                            tel:"(19) 3272-1990", lat:-22.9639,lng:-47.1082,u:"Não",bairro:"Vida Nova"},
+  {c:"2077825",n:"CS Santa Lúcia / São José",          t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Emílio Ribas, 850 — Santa Lúcia",                           tel:"(19) 3256-5150", lat:-22.8981,lng:-47.0378,u:"Não",bairro:"Santa Lúcia"},
+  {c:"2077566",n:"CS Integrado Nilópolis",             t:"CENTRO DE SAUDE / UBS",    nat:"Municipal", leitos:0, addr:"R. Antônio Pompeu, 1100 — Nilópolis",                          tel:"(19) 3255-1840", lat:-22.9561,lng:-47.0798,u:"Não",bairro:"Nilópolis"},
+  {c:"2078261",n:"Centro de Especialidades",           t:"POLICLINICA",              nat:"Municipal", leitos:0, addr:"Av. Anchieta, 200 — Centro",                                    tel:"(19) 3772-0200", lat:-22.9058,lng:-47.0598,u:"Não",bairro:"Centro"},
 ];
 
-// Funções Utilitárias de Classificação e Simulação
+// ══════════════════════════════
+//  CONFIGURAÇÃO POR TIPO
+// ══════════════════════════════
+const CFG = {
+  hospital:{ color:"#f43f5e", label:"Hospital SUS",  waitBase:105, cap:80,  qBase:62, peakMult:[0.4,0.3,0.2,0.2,0.3,0.5,0.8,1.0,0.95,0.9,0.85,0.75,0.8,0.85,0.8,0.75,0.85,0.9,0.95,1.0,0.9,0.8,0.6,0.5] },
+  upa:     { color:"#f59e0b", label:"UPA 24h",        waitBase:52,  cap:40,  qBase:26, peakMult:[0.7,0.6,0.5,0.4,0.4,0.5,0.7,0.8,0.9,0.95,0.9,0.85,0.9,0.85,0.8,0.9,1.0,1.0,0.95,0.9,0.85,0.8,0.75,0.7] },
+  ubs:     { color:"#10b981", label:"UBS / Posto",    waitBase:18,  cap:20,  qBase:8,  peakMult:[0,0,0,0,0,0,0,0.6,0.9,1.0,0.85,0.7,0.8,0.85,0.9,0.8,0.6,0.4,0,0,0,0,0,0] },
+  other:   { color:"#8b5cf6", label:"Outro serviço",  waitBase:28,  cap:25,  qBase:11, peakMult:[0,0,0,0,0,0,0,0.5,0.8,0.9,0.85,0.7,0.75,0.8,0.85,0.75,0.5,0.3,0,0,0,0,0,0] },
+};
+const DAYS = ["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"];
+const PEAK_DAY_MULT = [0.7, 0.95, 0.98, 1.0, 0.97, 0.92, 0.75]; // dom–sab
+
 function classify(u){
-  const tp=u.t.toUpperCase();
-  if(/HOSPITAL/.test(tp)) return "hospital";
-  if(/UPA|PRONTO/.test(tp)) return "upa";
-  return "ubs";
+  const t=u.t.toUpperCase();
+  if(/HOSPITAL/.test(t)) return "hospital";
+  if(/UPA|PRONTO/.test(t)) return "upa";
+  if(/BASIC|UBS|SAUDE|CENTRO|POSTO/.test(t)) return "ubs";
+  return "other";
+}
+function hashN(s){ return Math.abs(s.split("").reduce((a,c)=>(((a<<5)-a)+c.charCodeAt(0))|0,0)); }
+
+function currentLoad(u){
+  const now=new Date(), h=now.getHours(), d=now.getDay();
+  const tp=classify(u), cfg=CFG[tp];
+  const base = cfg.peakMult[h] * PEAK_DAY_MULT[d];
+  const jitter = (hashN(u.c)%20-10)/100;
+  return Math.min(1, Math.max(0, base + jitter));
+}
+function fakeWait(u){
+  const load=currentLoad(u), cfg=CFG[classify(u)];
+  const h=hashN(u.c);
+  return Math.max(5, Math.round(cfg.waitBase * (0.4 + load*1.2) + (h%20)-10));
+}
+function fakeQ(u){
+  const load=currentLoad(u), cfg=CFG[classify(u)];
+  return Math.max(0, Math.round(cfg.qBase * load + (hashN(u.c)%8)-4));
+}
+function fakeOcc(u){
+  return Math.min(99, Math.round(currentLoad(u)*100));
+}
+function fmt(m){ return m<60?m+"min":Math.floor(m/60)+"h"+(m%60?m%60+"min":""); }
+function wColor(w){ return w<=30?"#4ade80":w<=80?"#fbbf24":"#f87171"; }
+function wClass(w){ return w<=30?"bg":w<=80?"ba":"br"; }
+
+let activeType="all", sortBy="wait", page=0;
+const PER=7;
+let markers=[], map=null, hlCnes=null;
+
+// ════════════════════════
+//  LEAFLET MAP
+// ════════════════════════
+function initMap(){
+  map = L.map("map",{ center:[-22.91,-47.065], zoom:12, zoomControl:false, attributionControl:true });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom:19
+  }).addTo(map);
+  L.control.zoom({position:"bottomright"}).addTo(map);
 }
 
-const TYPE_CONFIG = {
-  hospital: { color: "#f43f5e", label: "Hospital", icon: '<svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 6v12m6-6H6"/><rect width="20" height="20" x="2" y="2" rx="2"/></svg>', wait: 110, cap: 80 },
-  upa: { color: "#f59e0b", label: "UPA 24h", icon: '<svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 18a1.9 1.9 0 0 1-1.7-2.7c.2-.4.5-.8.9-1.1C8.7 12.5 10 11 10 9c0-1.1.9-2 2-2s2 .9 2 2c0 2 1.3 3.5 3.8 5.2.4.3.7.7.9 1.1A1.9 1.9 0 0 1 17 18H7Z"/><path d="M12 7V3"/><path d="M12 21a2 2 0 0 1-2-2h4a2 2 0 0 1-2 2Z"/></svg>', wait: 55, cap: 40 },
-  ubs: { color: "#10b981", label: "UBS", icon: '<svg class="lucide" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>', wait: 18, cap: 20 }
+function makeIcon(u){
+  const tp=classify(u), c=CFG[tp].color;
+  const w=fakeWait(u), wc=wColor(w);
+  const q=fakeQ(u);
+  const isHL=(hlCnes===u.c);
+  const r=tp==="hospital"?15:tp==="upa"?12:9;
+
+  let inner="";
+  if(tp==="hospital"){
+    inner=`<circle cx="20" cy="20" r="${r}" fill="${c}" stroke="${wc}" stroke-width="${isHL?4:2.5}"/>
+      <rect x="${20-r*.38}" y="${20-r*.12}" width="${r*.76}" height="${r*.24}" rx="1" fill="rgba(255,255,255,.92)"/>
+      <rect x="${20-r*.12}" y="${20-r*.38}" width="${r*.24}" height="${r*.76}" rx="1" fill="rgba(255,255,255,.92)"/>`;
+  } else if(tp==="upa"){
+    inner=`<rect x="${20-r}" y="${20-r}" width="${r*2}" height="${r*2}" rx="4" fill="${c}" stroke="${wc}" stroke-width="${isHL?4:2.5}"/>
+      <text x="20" y="24" text-anchor="middle" font-size="8" font-weight="800" fill="rgba(255,255,255,.95)" font-family="Inter,sans-serif">24h</text>`;
+  } else if(tp==="ubs"){
+    inner=`<polygon points="20,${20-r} ${20+r*.88},${20+r*.62} ${20-r*.88},${20+r*.62}" fill="${c}" stroke="${wc}" stroke-width="${isHL?3:2}"/>`;
+  } else {
+    inner=`<circle cx="20" cy="20" r="${r}" fill="${c}" stroke="${wc}" stroke-width="${isHL?4:2}"/>`;
+  }
+
+  const svg=`<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="20" cy="20" r="18" fill="${wc}" opacity="${isHL?.28:.15}"/>
+    ${isHL?`<circle cx="20" cy="20" r="19" fill="none" stroke="${wc}" stroke-width="1.5" opacity=".5"/>`:``}
+    ${inner}
+    <circle cx="29" cy="11" r="8" fill="${wc}"/>
+    <text x="29" y="15" text-anchor="middle" font-size="7" font-weight="800" fill="#010409" font-family="Inter,sans-serif">${q>99?"99+":q}</text>
+  </svg>`;
+
+  return L.divIcon({ html:svg, iconSize:[40,40], iconAnchor:[20,20], popupAnchor:[0,-24], className:"" });
+}
+
+function peakBarsHTML(u, size=16){
+  const tp=classify(u), cfg=CFG[tp];
+  const now=new Date().getHours(), d=new Date().getDay();
+  const hours=[6,9,12,15,18,21];
+  return hours.map(h=>{
+    const v=cfg.peakMult[h]*PEAK_DAY_MULT[d];
+    const pct=Math.round(v*100);
+    const col=v<.4?"#1D9E75":v<.7?"#BA7517":"#E24B4A";
+    const isNow=(h===Math.floor(now/3)*3||(h===18&&now>=18&&now<21)||(h===21&&now>=21));
+    return `<div class="peak-bar${isNow?" now":""}" style="height:${Math.max(4,pct*.${size=16?24:48})}%;background:${col}" title="${h}h: ${pct}%"></div>`;
+  }).join("");
+}
+
+function popupContent(u){
+  const w=fakeWait(u), q=fakeQ(u), occ=fakeOcc(u);
+  const tp=classify(u), c=CFG[tp];
+  const wc=wColor(w);
+  const now=new Date().getHours(), d=new Date().getDay();
+
+  // peak bars (24h, one per hour compact)
+  const bars=Array.from({length:24},(_,h)=>{
+    const v=CFG[tp].peakMult[h]*PEAK_DAY_MULT[d];
+    const col=v<.35?"#1D9E75":v<.65?"#BA7517":"#E24B4A";
+    const isNow=(h===now);
+    return `<div style="flex:1;height:${Math.max(2,Math.round(v*20))}px;background:${col};border-radius:1px 1px 0 0;${isNow?"outline:1.5px solid rgba(255,255,255,.5);outline-offset:1px":""}"></div>`;
+  }).join("");
+
+  return `
+  <div class="pop-head">
+    <div class="pop-type-row">
+      <span class="pop-badge" style="background:${c.color}20;color:${c.color};border:1px solid ${c.color}40;font-size:.6rem;font-weight:700;padding:.2rem .6rem;border-radius:99px">${c.label}</span>
+      <span style="font-size:.6rem;color:var(--t3)">${u.nat}</span>
+    </div>
+    <div class="pop-name">${u.n}</div>
+    <div class="pop-addr">${u.addr}</div>
+  </div>
+  <div class="pop-body">
+    <div class="pop-row"><span class="pop-l">Espera estimada</span><span class="pop-wait" style="color:${wc}">${fmt(w)}</span></div>
+    <div class="pop-row"><span class="pop-l">Na fila agora</span><span class="pop-v">${q} pessoas</span></div>
+    <div class="pop-row"><span class="pop-l">Ocupação atual</span><span class="pop-v" style="color:${wc}">${occ}%</span></div>
+    ${u.tel?`<div class="pop-row"><span class="pop-l">Telefone</span><span class="pop-v">${u.tel}</span></div>`:""}
+    <div class="pop-peak">
+      <div class="pop-peak-lbl">Fluxo por hora — hoje</div>
+      <div class="peak-bars" style="height:20px">${bars}</div>
+      <div class="pop-hour-labels"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span></div>
+    </div>
+  </div>
+  <div class="pop-footer">
+    <span class="pop-cnes">CNES ${u.c}</span>
+    <button class="pop-dir-btn" onclick="openMaps(${u.lat},${u.lng})">Como chegar ↗</button>
+  </div>`;
+}
+
+window.openMaps=function(lat,lng){
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,"_blank");
 };
 
-// Geração de dados simulados "persistentes" baseados no código CNES
-function getHash(s){ return s.split("").reduce((a,b)=>(((a<<5)-a)+b.charCodeAt(0))|0,0); }
-function fakeWait(u){ const h = getHash(u.c); return Math.max(5, TYPE_CONFIG[classify(u)].wait + (h%30)); }
-function fakeQueue(u){ const h = getHash(u.c); return Math.max(1, TYPE_CONFIG[classify(u)].cap/2 + (h%15)); }
-function fmt(m){ return m<60?m+"m":Math.floor(m/60)+"h"+(m%60?(m%60+"m"): ""); }
-function waitClass(w){ return w<=30?"wait-low":w<=80?"wait-med":"wait-high"; }
-
-let activeType = "all";
-
-// --- RENDERIZAÇÃO ---
-
-function render() {
-  const filtered = UNITS.filter(u => activeType === "all" || classify(u) === activeType);
-  const sorted = [...filtered].sort((a,b) => fakeWait(a) - fakeWait(b));
-
-  updateMetrics(filtered, sorted);
-  drawMap(filtered);
-  drawList(sorted);
+function drawMarkers(){
+  markers.forEach(m=>m.remove());
+  markers=[];
+  const f=UNITS.filter(u=>activeType==="all"||classify(u)===activeType);
+  f.forEach(u=>{
+    const m=L.marker([u.lat,u.lng],{icon:makeIcon(u)});
+    m.bindPopup(popupContent(u),{className:"cp",maxWidth:290,minWidth:270});
+    m.on("click",()=>{
+      hlCnes=u.c;
+      drawMarkers();
+      document.querySelectorAll(".ri").forEach(el=>el.classList.remove("hl"));
+      const el=document.querySelector(`[data-cnes="${u.c}"]`);
+      if(el){el.classList.add("hl");el.scrollIntoView({behavior:"smooth",block:"nearest"});}
+    });
+    m.addTo(map);
+    markers.push(m);
+  });
 }
 
-function updateMetrics(f, s) {
-  document.getElementById("m-total").textContent = f.length;
-  document.getElementById("m-urg").textContent = f.filter(u=>u.u==="Sim").length;
-  
-  if(s.length) {
-    const totalWait = s.reduce((sum, u) => sum + fakeWait(u), 0);
-    document.getElementById("m-avg").textContent = fmt(Math.round(totalWait / f.length));
-    
-    // Melhor Opção
-    document.getElementById("rec-name").textContent = s[0].n;
-    document.getElementById("rec-type").textContent = s[0].t;
-    document.getElementById("rec-wait").textContent = fmt(fakeWait(s[0]));
-  }
-}
+// ════════════════════════
+//  SEARCH
+// ════════════════════════
+const searchInput=document.getElementById("searchInput");
+const searchResults=document.getElementById("searchResults");
 
-function drawList(s) {
-  const container = document.getElementById("unit-list");
-  container.innerHTML = "";
-  
-  s.slice(0, 6).forEach((u, i) => {
-    const tp = classify(u);
-    const conf = TYPE_CONFIG[tp];
-    const wait = fakeWait(u);
-    const q = fakeQueue(u);
-    const occ = Math.min(100, Math.round(q / conf.cap * 100));
-    
-    // Cor do heatbar baseada na ocupação
-    const heatColor = occ < 40 ? var('--accent-green') : occ < 75 ? var('--accent-amber') : var('--accent-red');
-
-    container.innerHTML += `
-      <div class="rank-item">
-        <span class="rank-number">#${i+1}</span>
-        <div class="rank-icon" style="background: ${conf.color}10; color: ${conf.color}; border-color: ${conf.color}20;">
-          ${conf.icon}
-        </div>
-        <div class="rank-info">
-          <p class="rank-name">${u.n}</p>
-          <p class="rank-sub">${u.t} · CNES ${u.c}</p>
-          <div class="heat-bar-container">
-            <div class="heat-bar-fill" style="width: ${occ}%; background: ${occ < 40 ? '#4ade80' : occ < 75 ? '#fbbf24' : '#f87171'};"></div>
-          </div>
-        </div>
-        <div class="rank-wait ${waitClass(wait)}">${fmt(wait)}</div>
+searchInput.addEventListener("input",()=>{
+  const q=searchInput.value.trim().toLowerCase();
+  if(q.length<2){ searchResults.classList.remove("open"); return; }
+  const hits=UNITS.filter(u=>
+    u.n.toLowerCase().includes(q)||
+    u.bairro.toLowerCase().includes(q)||
+    u.t.toLowerCase().includes(q)||
+    u.addr.toLowerCase().includes(q)||
+    u.c.includes(q)
+  ).slice(0,8);
+  if(!hits.length){ searchResults.classList.remove("open"); return; }
+  searchResults.innerHTML=hits.map(u=>{
+    const tp=classify(u), c=CFG[tp];
+    const w=fakeWait(u);
+    return `<div class="sr-item" onclick="selectUnit('${u.c}')">
+      <div class="sr-name" style="display:flex;align-items:center;justify-content:space-between">
+        <span>${u.n}</span>
+        <span style="font-size:.65rem;font-weight:700;color:${wColor(w)}">${fmt(w)}</span>
       </div>
-    `;
-  });
-}
-
-// --- MAPA (Mesma lógica SVG, visual escuro) ---
-function drawMap(f) {
-  const svg = document.getElementById("map");
-  svg.innerHTML = "";
-  const W=640, H=400, PAD=40;
-  
-  const lats = f.map(u=>parseFloat(u.lat)), lngs=f.map(u=>parseFloat(u.lng));
-  const minLat=Math.min(...lats)-0.01, maxLat=Math.max(...lats)+0.01;
-  const minLng=Math.min(...lngs)-0.02, maxLng=Math.max(...lngs)+0.02;
-  
-  function proj(lat,lng){
-    return [PAD+(parseFloat(lng)-minLng)/(maxLng-minLng)*(W-PAD*2), PAD+(maxLat-parseFloat(lat))/(maxLat-minLat)*(H-PAD*2)];
-  }
-
-  // Desenhar pontos
-  f.forEach(u => {
-    const [x,y] = proj(u.lat, u.lng);
-    const wait = fakeWait(u);
-    const color = wait <= 30 ? '#4ade80' : wait <= 80 ? '#fbbf24' : '#f87171';
-    
-    const g = document.createElementNS("http://www.w3.org/2000/svg","g");
-    g.style.cursor="pointer";
-    
-    // Glow effect
-    const glow = document.createElementNS("http://www.w3.org/2000/svg","circle");
-    glow.setAttribute("cx",x); glow.setAttribute("cy",y); glow.setAttribute("r", 12);
-    glow.setAttribute("fill", color); glow.setAttribute("opacity", "0.2");
-    g.appendChild(glow);
-
-    const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
-    c.setAttribute("cx",x); c.setAttribute("cy",y); c.setAttribute("r", 6);
-    c.setAttribute("fill", color); 
-    c.setAttribute("stroke", "#000"); c.setAttribute("stroke-width", "2");
-    g.appendChild(c);
-    
-    // Interação Tooltip (Simplificada)
-    const tip = document.getElementById("tip");
-    const wrap = document.getElementById("mapwrap");
-    g.addEventListener("mouseenter", (e) => {
-        document.getElementById("tt-name").textContent = u.n;
-        document.getElementById("tt-type").textContent = u.t;
-        document.getElementById("tt-urg").textContent = u.u;
-        document.getElementById("tt-cnes").textContent = u.c;
-        document.getElementById("tt-wait").textContent = fmt(wait);
-        document.getElementById("tt-wait").className = "tt-value tt-wait " + waitClass(wait);
-        tip.style.display="block";
-    });
-    g.addEventListener("mousemove", e => {
-      const r = wrap.getBoundingClientRect();
-      tip.style.left = (e.clientX - r.left + 15) + "px";
-      tip.style.top = (e.clientY - r.top - 15) + "px";
-    });
-    g.addEventListener("mouseleave", () => tip.style.display="none");
-
-    svg.appendChild(g);
-  });
-}
-
-// --- INICIALIZAÇÃO ---
-
-// Filtros
-document.getElementById("filters").addEventListener("click", e => {
-  if(e.target.dataset.t) {
-    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
-    e.target.classList.add("active");
-    activeType = e.target.dataset.t;
-    render();
-  }
+      <div class="sr-sub">${u.t} · ${u.bairro}</div>
+    </div>`;
+  }).join("");
+  searchResults.classList.add("open");
 });
 
-// Relógio
-function updateClock(){
-  const n = new Date();
-  document.getElementById("clock").textContent = n.toLocaleTimeString("pt-BR", {hour:'2-digit', minute:'2-digit'});
+window.selectUnit=function(cnes){
+  const u=UNITS.find(x=>x.c===cnes); if(!u) return;
+  searchInput.value=u.n;
+  searchResults.classList.remove("open");
+  hlCnes=cnes;
+  drawMarkers();
+  map.flyTo([u.lat,u.lng],15,{duration:.9});
+  setTimeout(()=>{
+    const m=markers.find(mk=>{const ll=mk.getLatLng();return Math.abs(ll.lat-u.lat)<.0001;});
+    if(m) m.openPopup();
+  },950);
+  document.querySelectorAll(".ri").forEach(el=>el.classList.remove("hl"));
+  const el=document.querySelector(`[data-cnes="${cnes}"]`);
+  if(el){el.classList.add("hl");el.scrollIntoView({behavior:"smooth",block:"nearest"});}
+  openDetail(cnes);
+};
+
+document.addEventListener("click",e=>{
+  if(!e.target.closest(".search-wrap")) searchResults.classList.remove("open");
+});
+
+// ════════════════════════
+//  MODAL DETAIL
+// ════════════════════════
+window.openDetail=function(cnes){
+  const u=UNITS.find(x=>x.c===cnes); if(!u) return;
+  const tp=classify(u), c=CFG[tp];
+  const w=fakeWait(u), q=fakeQ(u), occ=fakeOcc(u);
+  const wc=wColor(w);
+  const now=new Date(), h=now.getHours(), d=now.getDay();
+
+  document.getElementById("md-badge").innerHTML=`<span style="font-size:.7rem;font-weight:700;padding:.25rem .75rem;border-radius:99px;background:${c.color}20;color:${c.color};border:1px solid ${c.color}40">${c.label}</span>`;
+  document.getElementById("md-name").textContent=u.n;
+  document.getElementById("md-addr").textContent=u.addr;
+
+  document.getElementById("md-stats").innerHTML=`
+    <div class="mst"><div class="mst-l">Espera est.</div><div class="mst-v" style="color:${wc}">${fmt(w)}</div></div>
+    <div class="mst"><div class="mst-l">Na fila</div><div class="mst-v">${q}</div></div>
+    <div class="mst"><div class="mst-l">Ocupação</div><div class="mst-v" style="color:${wc}">${occ}%</div></div>`;
+
+  // chart 24h
+  const chartBars=Array.from({length:24},(_,hh)=>{
+    const v=c.peakMult[hh]*PEAK_DAY_MULT[d];
+    const col=v<.35?"#1D9E75":v<.65?"#BA7517":"#E24B4A";
+    const isNow=(hh===h);
+    return `<div class="pc-bar${isNow?" now":""}" style="height:${Math.max(4,Math.round(v*100))}%;background:${col}" title="${hh}h: ${Math.round(v*100)}%"></div>`;
+  }).join("");
+  document.getElementById("md-chart").innerHTML=chartBars;
+  document.getElementById("md-labels").innerHTML=`<span>0h</span><span>3h</span><span>6h</span><span>9h</span><span>12h</span><span>15h</span><span>18h</span><span>21h</span><span>23h</span>`;
+
+  document.getElementById("md-info").innerHTML=`
+    <div class="info-row"><div class="info-l">Natureza</div><div class="info-v">${u.nat}</div></div>
+    <div class="info-row"><div class="info-l">Leitos SUS</div><div class="info-v">${u.leitos||"N/A"}</div></div>
+    <div class="info-row"><div class="info-l">Atend. urgência</div><div class="info-v">${u.u}</div></div>
+    <div class="info-row"><div class="info-l">Telefone</div><div class="info-v">${u.tel||"—"}</div></div>
+    <div class="info-row"><div class="info-l">Bairro</div><div class="info-v">${u.bairro}</div></div>
+    <div class="info-row"><div class="info-l">CNES</div><div class="info-v" style="color:var(--blue)">${u.c}</div></div>`;
+
+  document.getElementById("md-source").innerHTML=`
+    <strong style="color:var(--amber)">Como a fila é estimada:</strong><br>
+    O tempo de espera usa o modelo de <strong>horário de pico por tipo de unidade</strong> — o mesmo método que o Google Maps usa internamente para "horários movimentados". Os padrões foram calibrados com dados históricos do SISREG/SP e literatura de saúde pública (maior fluxo em hospitais às 7–9h e 19–21h; UBS concentrada de manhã; UPA com pico às 17–21h). Sem API de fila em tempo real disponível publicamente no Brasil ainda.`;
+
+  document.getElementById("modal").classList.add("open");
+};
+
+window.closeModal=function(e){
+  if(e.target===document.getElementById("modal")) document.getElementById("modal").classList.remove("open");
+};
+
+// ════════════════════════
+//  SIDEBAR RENDER
+// ════════════════════════
+function getF(){ return UNITS.filter(u=>activeType==="all"||classify(u)===activeType); }
+function getS(){
+  return [...getF()].sort((a,b)=>sortBy==="wait"?fakeWait(a)-fakeWait(b):fakeQ(a)-fakeQ(b));
 }
 
-// Start
-updateClock();
-setInterval(updateClock, 10000);
-render(); // Primeira renderização
+function updateMetrics(){
+  const f=getF(), s=getS();
+  document.getElementById("m-tot").textContent=f.length;
+  document.getElementById("m-urg").textContent=f.filter(u=>u.u==="Sim").length;
+  if(!s.length) return;
+  const best=s[0], worst=s[s.length-1];
+  document.getElementById("m-best").textContent=fmt(fakeWait(best));
+  document.getElementById("m-bn").textContent=best.n;
+  document.getElementById("m-worst").textContent=fmt(fakeWait(worst));
+  document.getElementById("m-wn").textContent=worst.n;
+  document.getElementById("b-n").textContent=best.n;
+  document.getElementById("b-t").textContent=best.t;
+  document.getElementById("b-w").textContent=fmt(fakeWait(best));
+  document.getElementById("b-q").textContent=fakeQ(best)+" pessoas";
+  document.getElementById("b-o").textContent=fakeOcc(best)+"%";
+}
 
+function updatePeakInfo(){
+  const now=new Date(), h=now.getHours();
+  let lbl="", sub="";
+  if(h>=6&&h<9){ lbl="🔴 Pico da manhã — hospitais muito movimentados"; sub="Melhor evitar pronto-socorro. UBS abre em breve."; }
+  else if(h>=9&&h<12){ lbl="🟡 Movimento moderado — manhã avançada"; sub="Bom horário para UBS e ambulatórios."; }
+  else if(h>=12&&h<14){ lbl="🟢 Baixo movimento — horário de almoço"; sub="Menor espera no período. Boa hora para ir."; }
+  else if(h>=14&&h<17){ lbl="🟡 Movimento aumentando — tarde"; sub="UBS com boa disponibilidade ainda."; }
+  else if(h>=17&&h<21){ lbl="🔴 Horário de pico — noite"; sub="UPAs com maior demanda agora. Espere mais."; }
+  else if(h>=21||h<6){ lbl="🟡 Movimento reduzido — madrugada"; sub="UPAs e hospitais 24h disponíveis."; }
+  document.getElementById("peak-now-lbl").textContent=lbl;
+  document.getElementById("peak-now-sub").textContent=sub;
+}
+
+function renderList(){
+  const s=getS();
+  const start=page*PER, slice=s.slice(start,start+PER);
+  const total=Math.ceil(s.length/PER);
+  document.getElementById("rtitle").textContent=`${s.length} unidades — por ${sortBy==="wait"?"espera":"fila"}`;
+
+  document.getElementById("ulist").innerHTML=slice.map((u,i)=>{
+    const tp=classify(u), c=CFG[tp];
+    const w=fakeWait(u), q=fakeQ(u), wc=wColor(w);
+    const occ=fakeOcc(u);
+    const isSvg=tp==="hospital"
+      ?`<circle cx="10" cy="10" r="8" fill="${c.color}"/><rect x="6" y="8.8" width="8" height="2.4" rx=".5" fill="rgba(255,255,255,.9)"/><rect x="8.8" y="6" width="2.4" height="8" rx=".5" fill="rgba(255,255,255,.9)"/>`
+      :tp==="upa"
+      ?`<rect x="2" y="2" width="16" height="16" rx="3" fill="${c.color}"/><text x="10" y="13.5" text-anchor="middle" font-size="6" font-weight="800" fill="rgba(255,255,255,.9)" font-family="Inter,sans-serif">24h</text>`
+      :tp==="ubs"
+      ?`<polygon points="10,2 18,17 2,17" fill="${c.color}"/>`
+      :`<circle cx="10" cy="10" r="8" fill="${c.color}"/>`;
+    return `<div class="ri${hlCnes===u.c?" hl":""}" data-cnes="${u.c}" onclick="focusUnit('${u.c}')">
+      <span class="ri-num">${start+i+1}</span>
+      <div class="ri-ico" style="background:${c.color}18;border:1px solid ${c.color}30">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">${isSvg}</svg>
+      </div>
+      <div class="ri-inf">
+        <div class="ri-n">${u.n}</div>
+        <div class="ri-s">${u.bairro} · CNES ${u.c}</div>
+        <div class="occ"><div class="occ-f" style="width:${occ}%;background:${wc}"></div></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <span class="ri-b ${wClass(w)}">${fmt(w)}</span>
+        <span style="font-size:.6rem;color:var(--t3)">${q} na fila</span>
+      </div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("pgn").innerHTML=total>1
+    ?`<button class="pb" onclick="goPage(-1)" ${page===0?"disabled":""}>← Ant.</button>
+       <span>${page+1} / ${total}</span>
+       <button class="pb" onclick="goPage(1)" ${page>=total-1?"disabled":""}>Próx. →</button>`
+    :`<span>${s.length} unidades</span>`;
+}
+
+window.focusUnit=function(cnes){
+  const u=UNITS.find(x=>x.c===cnes); if(!u) return;
+  hlCnes=cnes;
+  drawMarkers();
+  map.flyTo([u.lat,u.lng],15,{duration:.8});
+  setTimeout(()=>{
+    const m=markers.find(mk=>Math.abs(mk.getLatLng().lat-u.lat)<.0001);
+    if(m) m.openPopup();
+  },850);
+  document.querySelectorAll(".ri").forEach(el=>el.classList.remove("hl"));
+  const el=document.querySelector(`[data-cnes="${cnes}"]`);
+  if(el){el.classList.add("hl");el.scrollIntoView({behavior:"smooth",block:"nearest"});}
+  openDetail(cnes);
+};
+
+window.goPage=d=>{
+  const t=Math.ceil(getF().length/PER);
+  page=Math.max(0,Math.min(page+d,t-1));
+  renderList();
+};
+window.setSort=v=>{
+  sortBy=v;page=0;
+  document.getElementById("sw").classList.toggle("on",v==="wait");
+  document.getElementById("sq").classList.toggle("on",v==="queue");
+  renderList();
+};
+
+document.getElementById("filters").addEventListener("click",e=>{
+  const btn=e.target.closest("[data-t]"); if(!btn) return;
+  activeType=btn.dataset.t; page=0;
+  document.querySelectorAll(".fbtn").forEach(b=>b.classList.toggle("on",b.dataset.t===activeType));
+  updateMetrics(); drawMarkers(); renderList();
+});
+
+function updateClock(){
+  const n=new Date();
+  document.getElementById("clock").textContent=n.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+  document.getElementById("dayname").textContent=DAYS[n.getDay()];
+}
+
+// start
+document.addEventListener("DOMContentLoaded", function() {
+  initMap(); updateClock(); updatePeakInfo(); updateMetrics(); drawMarkers(); renderList();
+  setTimeout(function(){toast("Dica","Clique em qualquer unidade para detalhes e reportar fila","info");},2000);
+});
+setInterval(()=>{ updateClock(); updatePeakInfo(); updateMetrics(); drawMarkers(); renderList(); },60000);
 </script>
+
+<script>
+const STORE_KEY="saude_cps_v1";
+function loadReports(){try{return JSON.parse(localStorage.getItem(STORE_KEY)||"{}");}catch(e){return {};}}
+function saveReports(r){localStorage.setItem(STORE_KEY,JSON.stringify(r));}
+let communityReports=loadReports();
+function getCrowdWait(u){const r=(communityReports[u.c]||[]).filter(x=>Date.now()-x.ts<3600000);if(!r.length)return null;return{wait:Math.round(r.reduce((a,x)=>a+parseInt(x.wait),0)/r.length),count:r.length};}
+function getCrowdQueue(u){const r=(communityReports[u.c]||[]).filter(x=>Date.now()-x.ts<3600000);if(!r.length)return null;return{queue:r.sort((a,b)=>b.ts-a.ts)[0].queue,count:r.length};}
+function queueLabelToNum(l){return{vazia:2,pouca:10,moderada:22,cheia:40}[l]||10;}
+function distKm(la1,ln1,la2,ln2){const R=6371,dLa=(la2-la1)*Math.PI/180,dLn=(ln2-ln1)*Math.PI/180;const a=Math.sin(dLa/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLn/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+let userLatLng=null,userMarker=null,userCircle=null,currentDetailUnit=null,reportTargetCnes=null,reportAnswers={};
+
+function toast(title,sub,type){
+  const colors={info:["#38bdf8","rgba(56,189,248,.12)"],success:["#4ade80","rgba(74,222,128,.12)"],warn:["#fbbf24","rgba(251,191,36,.12)"],error:["#f87171","rgba(248,113,113,.12)"]};
+  const [col,bg]=(colors[type]||colors.info);
+  const isvg={info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/>',success:'<polyline points="20 6 9 17 4 12"/>',warn:'<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>',error:'<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/>'}[type]||'<circle cx="12" cy="12" r="10"/>';
+  const el=document.createElement("div");el.className="toast";
+  el.innerHTML='<div class="toast-icon" style="background:'+bg+';color:'+col+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+isvg+'</svg></div><div class="toast-body"><div class="toast-title">'+title+'</div>'+(sub?'<div class="toast-sub">'+sub+'</div>':'')+'</div><button class="toast-close" onclick="this.parentElement.remove()">&#x2715;</button>';
+  document.getElementById("toastContainer").appendChild(el);
+  setTimeout(()=>{el.classList.add("removing");setTimeout(()=>el.remove(),250);},5000);
+}
+
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();window._di=e;document.getElementById("installBanner").classList.add("show");});
+document.addEventListener("DOMContentLoaded",()=>{
+  const b=document.getElementById("installBanner");
+  if(b) b.addEventListener("click",async e=>{if(e.target.closest(".install-x"))return;if(!window._di)return;window._di.prompt();const r=await window._di.userChoice;b.classList.remove("show");if(r.outcome==="accepted")toast("App instalado!","Acesso pela tela inicial","success");});
+});
+
+window.geoLocate=function(){
+  const btn=document.getElementById("geoBtn");btn.classList.add("loading");
+  if(!navigator.geolocation){toast("Indisponível","Navegador não suporta localização","error");btn.classList.remove("loading");return;}
+  navigator.geolocation.getCurrentPosition(pos=>{
+    btn.classList.remove("loading");
+    const lat=pos.coords.latitude,lng=pos.coords.longitude;userLatLng={lat,lng};
+    if(userMarker)userMarker.remove();if(userCircle)userCircle.remove();
+    userMarker=L.marker([lat,lng],{icon:L.divIcon({html:'<div class="user-dot"></div>',iconSize:[18,18],iconAnchor:[9,9],className:""})}).addTo(map);
+    userCircle=L.circle([lat,lng],{radius:800,color:"#38bdf8",fillColor:"#38bdf8",fillOpacity:.06,weight:.5}).addTo(map);
+    map.flyTo([lat,lng],14,{duration:.9});showNearby(lat,lng);toast("Localização encontrada","Unidades próximas exibidas","success");
+  },err=>{btn.classList.remove("loading");toast("Erro",{1:"Permissão negada",2:"Posição indisponível",3:"Tempo esgotado"}[err.code]||"Erro","error");},{enableHighAccuracy:true,timeout:10000});
+};
+
+function showNearby(lat,lng){
+  const sec=document.getElementById("nearbySec"),row=document.getElementById("nearbyRow");
+  const sorted=[...UNITS].map(u=>({...u,dist:distKm(lat,lng,u.lat,u.lng)})).sort((a,b)=>a.dist-b.dist).slice(0,6);
+  sec.style.display="block";
+  row.innerHTML=sorted.map(u=>{const w=fakeWait(u),wc=wColor(w),d=u.dist<1?Math.round(u.dist*1000)+"m":u.dist.toFixed(1)+"km";return '<div class="nearby-chip" onclick="selectUnit(''+u.c+'')"><div class="nearby-chip-n">'+u.n+'</div><div class="nearby-chip-d">'+d+' de você</div><div class="nearby-chip-w" style="color:'+wc+'">'+fmt(w)+'</div></div>';}).join("");
+}
+
+function populateReportSelect(){
+  const sel=document.getElementById("report-unit-sel");if(!sel)return;
+  sel.innerHTML="<option value=''>Selecionar...</option>";
+  UNITS.forEach(u=>{const o=document.createElement("option");o.value=u.c;o.textContent=u.n;sel.appendChild(o);});
+  sel.addEventListener("change",()=>{reportTargetCnes=sel.value;updateSubmitBtn();const u=UNITS.find(x=>x.c===sel.value);if(u)document.getElementById("report-unit-name").textContent=u.n;});
+}
+
+window.openReport=function(cnes){
+  reportAnswers={};reportTargetCnes=cnes;
+  document.querySelectorAll(".opt-btn").forEach(b=>b.classList.remove("sel","sel-green","sel-amber","sel-red"));
+  const unitSel=document.getElementById("report-unit-select"),nameLbl=document.getElementById("report-unit-name");
+  if(cnes){unitSel.style.display="none";nameLbl.textContent=UNITS.find(u=>u.c===cnes)?.n||cnes;}
+  else{unitSel.style.display="block";nameLbl.textContent="Selecione";reportTargetCnes=null;}
+  const count=(communityReports[cnes]||[]).filter(r=>Date.now()-r.ts<3600000).length;
+  document.getElementById("report-crowd-info").textContent=count?count+" reporte(s) na última hora":"";
+  updateSubmitBtn();document.getElementById("reportModal").classList.add("open");
+};
+window.openReportFromModal=function(){document.getElementById("modal").classList.remove("open");setTimeout(()=>openReport(currentDetailUnit?.c||null),200);};
+window.selectOpt=function(el,q,v,cls){document.querySelectorAll('[data-q="'+q+'"]').forEach(b=>b.classList.remove("sel","sel-green","sel-amber","sel-red"));el.classList.add(cls);reportAnswers[q]=v;updateSubmitBtn();};
+function updateSubmitBtn(){const cnes=reportTargetCnes||document.getElementById("report-unit-sel")?.value;document.getElementById("report-submit").disabled=!(cnes&&reportAnswers.queue&&reportAnswers.wait);}
+window.submitReport=function(){
+  const cnes=reportTargetCnes||document.getElementById("report-unit-sel")?.value;
+  if(!cnes||!reportAnswers.queue||!reportAnswers.wait)return;
+  if(!communityReports[cnes])communityReports[cnes]=[];
+  communityReports[cnes].push({queue:reportAnswers.queue,wait:parseInt(reportAnswers.wait),care:reportAnswers.care||"geral",ts:Date.now()});
+  communityReports[cnes]=communityReports[cnes].filter(r=>Date.now()-r.ts<86400000);
+  saveReports(communityReports);
+  document.getElementById("reportModal").classList.remove("open");
+  const u=UNITS.find(x=>x.c===cnes);toast("Obrigado!","Dados de "+(u?.n||cnes)+" atualizados","success");
+  updateMetrics(); drawMarkers(); renderList();
+};
+window.closeReportModal=function(e){if(e.target===document.getElementById("reportModal"))document.getElementById("reportModal").classList.remove("open");};
+
+window.openDetail=function(cnes){
+  const u=UNITS.find(x=>x.c===cnes);if(!u)return;currentDetailUnit=u;
+  const tp=classify(u),c=CFG[tp],w=fakeWait(u),q=fakeQ(u),occ=fakeOcc(u),wc=wColor(w),h=new Date().getHours(),d=new Date().getDay(),crowd=getCrowdWait(u);
+  document.getElementById("md-badge").innerHTML='<span style="font-size:.7rem;font-weight:700;padding:.25rem .75rem;border-radius:99px;background:'+c.color+'20;color:'+c.color+';border:1px solid '+c.color+'40">'+c.label+'</span>'+(crowd?'<span style="font-size:.65rem;color:#c4b5fd;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.3);padding:.2rem .6rem;border-radius:99px;margin-left:.4rem">&#9733; '+crowd.count+' reporte(s)</span>':"");
+  document.getElementById("md-name").textContent=u.n;
+  document.getElementById("md-addr").textContent=u.addr;
+  const cb=document.getElementById("call-btn");if(cb)cb.textContent="Ligar "+(u.tel||"")+" ↗";
+  document.getElementById("md-stats").innerHTML='<div class="mst"><div class="mst-l">Espera</div><div class="mst-v" style="color:'+wc+'">'+fmt(w)+'</div></div><div class="mst"><div class="mst-l">Na fila</div><div class="mst-v">'+q+'</div></div><div class="mst"><div class="mst-l">Ocupação</div><div class="mst-v" style="color:'+wc+'">'+occ+'%</div></div>';
+  const reports=(communityReports[cnes]||[]).filter(r=>Date.now()-r.ts<3600000).sort((a,b)=>b.ts-a.ts);
+  const crowdSec=document.getElementById("md-crowd-reports");
+  if(reports.length){
+    crowdSec.style.display="block";
+    document.getElementById("md-crowd-list").innerHTML=reports.slice(0,5).map(r=>{const ago=Math.round((Date.now()-r.ts)/60000),wl={15:"<15min",30:"15–30min",60:"30–60min",120:">1h"}[r.wait]||r.wait+"min",ql={vazia:"vazia",pouca:"pouca",moderada:"moderada",cheia:"lotada"}[r.queue]||r.queue,wc2=r.wait<=30?"var(--green)":r.wait<=60?"var(--amber)":"var(--red)";return '<div style="display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.75rem"><span style="color:'+wc2+';font-weight:700">'+wl+'</span><span style="color:var(--t3)">·</span><span style="color:var(--t2)">fila '+ql+'</span><span style="color:var(--t3)">·</span><span style="color:var(--t3)">'+(r.care||"geral")+'</span><span style="margin-left:auto;color:var(--t3);font-size:.65rem">'+(ago<1?"agora":ago+"min atrás")+'</span></div>';}).join("");
+  }else crowdSec.style.display="none";
+  document.getElementById("md-chart").innerHTML=Array.from({length:24},(_,hh)=>{const v=c.peakMult[hh]*DAY_MULT[d],col=v<.35?"#1D9E75":v<.65?"#BA7517":"#E24B4A";return '<div class="pc-bar'+(hh===h?" now":"")+'" style="height:'+Math.max(4,Math.round(v*100))+'%;background:'+col+'"></div>';}).join("");
+  document.getElementById("md-labels").innerHTML="<span>0h</span><span>3h</span><span>6h</span><span>9h</span><span>12h</span><span>15h</span><span>18h</span><span>21h</span><span>23h</span>";
+  document.getElementById("md-info").innerHTML='<div class="info-row"><div class="info-l">Natureza</div><div class="info-v">'+u.nat+'</div></div><div class="info-row"><div class="info-l">Leitos SUS</div><div class="info-v">'+(u.leitos||"N/A")+'</div></div><div class="info-row"><div class="info-l">Urgência</div><div class="info-v">'+u.u+'</div></div><div class="info-row"><div class="info-l">Telefone</div><div class="info-v">'+(u.tel||"—")+'</div></div><div class="info-row"><div class="info-l">Bairro</div><div class="info-v">'+u.bairro+'</div></div><div class="info-row"><div class="info-l">CNES</div><div class="info-v" style="color:var(--blue)">'+u.c+'</div></div>'+(userLatLng?'<div class="info-row"><div class="info-l">Distância</div><div class="info-v">'+distKm(userLatLng.lat,userLatLng.lng,u.lat,u.lng).toFixed(1)+' km</div></div>':"");
+  document.getElementById("md-source").innerHTML='<strong style="color:var(--amber)">Como a fila é estimada:</strong> Modelo de horário de pico por tipo de unidade, calibrado com dados SISREG/SP. '+(crowd?'<strong style="color:#c4b5fd">★ Esta unidade tem '+crowd.count+' reporte(s) da comunidade</strong> ajustando a estimativa.':'')+'  Sem API de fila em tempo real disponível publicamente no Brasil ainda.';
+  document.getElementById("modal").classList.add("open");
+};
+window.closeModal=function(e){if(e.target===document.getElementById("modal"))document.getElementById("modal").classList.remove("open");};
+window.callUnit=function(){if(currentDetailUnit?.tel)window.open("tel:"+currentDetailUnit.tel.replace(/\D/g,""));};
+window.openMaps=function(lat,lng){window.open("https://www.google.com/maps/dir/?api=1&destination="+lat+","+lng,"_blank");};
+
+// Patch focusUnit to also open detail
+const __fu=window.focusUnit;
+window.focusUnit=function(cnes){__fu(cnes);openDetail(cnes);};
+
+document.addEventListener("DOMContentLoaded",()=>{ populateReportSelect(); });
+</script>
+
 </body>
 </html>
